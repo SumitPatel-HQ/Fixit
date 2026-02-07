@@ -9,7 +9,10 @@ import {
    FileTextIcon,
    ClockIcon,
    SettingsIcon,
+   Menu,
+   X,
 } from "lucide-react";
+import { DashboardProvider, useDashboard } from "./dashboard-context";
 
 const navigation = [
    { name: "Input Hub", href: "/dashboard", icon: UploadIcon },
@@ -18,28 +21,68 @@ const navigation = [
    { name: "Settings", href: "/dashboard/settings", icon: SettingsIcon },
 ];
 
-export default function DashboardLayout({
+function DashboardLayoutContent({
    children,
 }: {
    children: React.ReactNode;
 }) {
    const pathname = usePathname();
+   const { isMobileMenuOpen, setIsMobileMenuOpen } = useDashboard();
 
    return (
-      <div className="min-h-screen bg-background overflow-hidden selection:bg-accent/30">
-         {/* Decorative Background Blobs - Visible through the glass sidebar */}
-         {/* <div className="fixed -left-20 top-20 w-80 h-80 bg-accent/20 rounded-full blur-[100px] animate" />
-         <div className="fixed -left-10 bottom-20 w-60 h-60 bg-blue-600/10 rounded-full blur-[80px] animate-pulse delay-700" /> */}
+      <div className="min-h-screen bg-background selection:bg-accent/30">
+         {/* Mobile Header */}
+         <div className="md:hidden fixed top-4 left-4 right-4 z-50 flex items-center justify-between px-6 py-3 bg-[#0c0c0c]/90 backdrop-blur-md border border-white/10 rounded-full shadow-lg">
+            <Link href="/" className="flex items-center gap-2">
+               <span className="font-display text-xl font-bold tracking-tight text-white">
+                  Fixit
+               </span>
+            </Link>
+            <button
+               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+               className="p-1 text-muted-foreground hover:text-white transition-colors"
+            >
+               {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
+         </div>
 
-         {/* Navigation - Floating Sidebar */}
-         <aside className="fixed left-4 top-4 bottom-4 w-66 bg-[#0c0c0c]/60 backdrop-blur-2xl border border-white/[0.05] rounded-[2rem] p-6 z-50 flex flex-col shadow-2xl shadow-black/50">
+         {/* Backdrop for Mobile */}
+         {isMobileMenuOpen && (
+            <div
+               className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden"
+               onClick={() => setIsMobileMenuOpen(false)}
+            />
+         )}
+
+         {/* Navigation - Sidebar */}
+         <aside
+            className={cn(
+               "fixed z-50  flex flex-col transition-all duration-300 ease-in-out",
+               // Mobile Styles
+               "inset-y-0 left-0 top-3 bottom-3 w-80 bg-[#0c0c0c] border-r border-white/10 p-6 shadow-2xl rounded-4xl",
+               isMobileMenuOpen ? "translate-x-0" : "-translate-x-full",
+               // Desktop Styles
+               "md:translate-x-0 md:fixed md:left-4 md:top-4 md:bottom-4 md:w-66 md:bg-[#0c0c0c]/60 md:backdrop-blur-2xl md:border md:border-white/[0.05] md:rounded-[2rem] md:shadow-black/50"
+            )}
+         >
             {/* Logo Section */}
-            <div className="mb-10 px-2">
-               <Link href="/" className="flex items-center mt-2 gap-3 group">
+            <div className="mb-10 px-2 flex justify-between items-center">
+               <Link
+                  href="/"
+                  className="flex items-center mt-2 gap-3 group"
+                  onClick={() => setIsMobileMenuOpen(false)}
+               >
                   <span className="font-display text-3xl font-bold tracking-tight text-white">
                      Fixit
                   </span>
                </Link>
+               {/* Mobile Close Button inside sidebar */}
+               <button
+                  className="md:hidden text-muted-foreground hover:text-white"
+                  onClick={() => setIsMobileMenuOpen(false)}
+               >
+                  <X className="w-5 h-5" />
+               </button>
             </div>
 
             {/* Navigation Links */}
@@ -52,6 +95,7 @@ export default function DashboardLayout({
                      <Link
                         key={item.name}
                         href={item.href}
+                        onClick={() => setIsMobileMenuOpen(false)}
                         className={cn(
                            "relative flex items-center gap-3 px-4 py-3.5 rounded-2xl transition-all duration-300 group font-medium",
                            isActive
@@ -95,9 +139,25 @@ export default function DashboardLayout({
          </aside>
 
          {/* Main Content Area */}
-         <main className="ml-76 mr-4 pt-10 mt-2 pb-8 relative">
-            <div className="max-w-7xl mx-auto">{children}</div>
+         <main className={cn(
+            "relative transition-all duration-300",
+            "md:ml-76 md:mr-4 md:pt-10 md:mt-2 md:pb-8", // Desktop margins
+            "p-4 pt-24 pb-32" // Mobile padding - pt for fixed header, pb for fixed footer
+         )}>
+            <div className="max-w-8xl mx-auto">{children}</div>
          </main>
       </div>
+   );
+}
+
+export default function DashboardLayout({
+   children,
+}: {
+   children: React.ReactNode;
+}) {
+   return (
+      <DashboardProvider>
+         <DashboardLayoutContent>{children}</DashboardLayoutContent>
+      </DashboardProvider>
    );
 }
