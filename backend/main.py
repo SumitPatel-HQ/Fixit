@@ -63,11 +63,16 @@ app.add_middleware(
 HIGH_CONFIDENCE_THRESHOLD = 0.6
 MEDIUM_CONFIDENCE_THRESHOLD = 0.3
 
-# Safety keywords that force safety_warning_only
-SAFETY_KEYWORDS = [
+# Safety keywords that force safety_warning_only (CRITICAL level only)
+CRITICAL_SAFETY_KEYWORDS = [
     "burning", "smoke", "melting", "swelling battery", "swollen battery",
-    "electric shock", "exposed mains", "sparking", "fire", "disconnect power",
-    "electrocution", "short circuit", "overheating", "burning smell",
+    "electric shock", "exposed mains", "sparking", "fire",
+    "electrocution", "short circuit", "burning smell",
+]
+
+# Warning-level safety keywords (include caution in steps, do NOT block repair)
+WARNING_SAFETY_KEYWORDS = [
+    "paper jam", "toner", "hot", "overheating", "moving parts",
 ]
 
 # --- Endpoints ---
@@ -162,13 +167,18 @@ async def troubleshoot(
         # DECISION GATE: Safety Override
         # ===========================================
         safety_detected = safety_info.get("safety_detected", False)
+        safety_severity = safety_info.get("safety_severity", "none")
+
         if not safety_detected:
             # Also check query text for safety keywords
             query_lower = query.lower()
-            for keyword in SAFETY_KEYWORDS:
+            # Check critical keywords first
+            for keyword in CRITICAL_SAFETY_KEYWORDS:
                 if keyword in query_lower:
                     safety_detected = True
+                    safety_severity = "critical"
                     safety_info["safety_detected"] = True
+                    safety_info["safety_severity"] = "critical"
                     safety_info["safety_keywords_found"] = [keyword]
                     safety_info["safety_message"] = (
                         "STOP. This situation may require professional help. "
@@ -176,10 +186,29 @@ async def troubleshoot(
                     )
                     safety_info["override_answer_type"] = True
                     break
+            
+            # If no critical keyword found, check warning keywords
+            if not safety_detected:
+                for keyword in WARNING_SAFETY_KEYWORDS:
+                    if keyword in query_lower:
+                        safety_detected = True
+                        safety_severity = "warning"
+                        safety_info["safety_detected"] = True
+                        safety_info["safety_severity"] = "warning"
+                        safety_info["safety_keywords_found"] = [keyword]
+                        safety_info["safety_message"] = (
+                            f"Caution: {keyword} detected. Follow safety precautions in the steps below."
+                        )
+                        safety_info["override_answer_type"] = False  # Allow repair steps
+                        break
 
-        if safety_detected and safety_info.get("override_answer_type", False):
-            logger.info("SAFETY OVERRIDE: Forcing safety_warning_only")
+        # Only override answer_type for CRITICAL safety, not warning level
+        if safety_detected and safety_info.get("override_answer_type", False) and safety_severity == "critical":
+            logger.info("SAFETY OVERRIDE (CRITICAL): Forcing safety_warning_only")
             query_info["answer_type"] = "safety_warning_only"
+        elif safety_detected and safety_severity == "warning":
+            logger.info(f"SAFETY WARNING: Including caution in response (severity: warning)")
+            # Do NOT override answer_type - let repair steps proceed with safety notes
 
         # ===========================================
         # DECISION GATE: Device Detection Confidence
@@ -239,6 +268,26 @@ async def troubleshoot(
                 query_info["clarifying_questions"] = [
                     f"I see multiple devices: {', '.join(device_list)}. Which one do you need help with?"
                 ]
+
+        # ===========================================
+        # POST-PROCESSING: "What is this" query fix
+        # If query is "what is this" type, ensure we get explanation + identification
+        # ===========================================
+        query_lower_check = query.lower().strip()
+        current_answer_type = query_info.get("answer_type", "troubleshoot_steps")
+        
+        # Check for "what is this" pattern that should trigger mixed (explain + identify)
+        what_is_this_patterns = [
+            "what is this", "what's this", "what is this device",
+            "what is this thing", "what am i looking at",
+            "what device is this", "tell me about this",
+        ]
+        is_what_is_this = any(p in query_lower_check for p in what_is_this_patterns)
+        
+        if is_what_is_this and current_answer_type == "identify_only":
+            logger.info("POST-PROCESSING: 'what is this' detected, upgrading identify_only to mixed")
+            query_info["answer_type"] = "mixed"
+            query_info["needs_explanation"] = True
 
         # ===========================================
         # Determine final answer_type
@@ -338,7 +387,8 @@ async def troubleshoot(
         # Grounded content enriches the step generator
         # ===========================================
         grounding_info = None
-        should_ground = _should_trigger_web_grounding(
+        enable_grounding = os.getenv("ENABLE_WEB_GROUNDING", "true").lower() == "true"
+        should_ground = enable_grounding and _should_trigger_web_grounding(
             answer_type, device_info, manual_context, query
         )
 
@@ -363,6 +413,12 @@ async def troubleshoot(
             except Exception as e:
                 logger.warning(f"Web grounding failed (non-fatal): {e}")
                 grounding_info = None
+                # Reset circuit breaker if it was triggered by optional grounding feature
+                # Web grounding is not critical - we can continue without it
+                status = get_quota_status()
+                if status.get("circuit_breaker_active"):
+                    logger.warning("⚠️ Circuit breaker was triggered by web grounding - resetting since it's optional")
+                    reset_circuit_breaker()
         else:
             logger.info("GATE 5 SKIPPED: Web grounding not needed")
 

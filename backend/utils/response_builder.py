@@ -17,7 +17,7 @@ ANSWER_TYPE_TITLES = {
     "explain_only": "How It Works",
     "troubleshoot_steps": "Troubleshooting Steps",
     "diagnose_only": "Diagnosis",
-    "mixed": "Analysis Results",
+    "mixed": "Device Overview",
     "ask_clarifying_questions": "I need more information",
     "reject_invalid_image": "Image Not Suitable",
     "ask_for_better_input": "Better Image Needed",
@@ -188,7 +188,8 @@ def build_enhanced_response(
 
     # Rejection-specific fields
     if answer_type == "reject_invalid_image":
-        response["image_category"] = (validation_info or {}).get("image_category", "unknown")
+        image_category = (validation_info or {}).get("image_category", "unknown")
+        response["image_category"] = image_category
         response["what_was_detected"] = (validation_info or {}).get("what_i_see", "")
         response["suggestion"] = (validation_info or {}).get("suggestion", "Please upload a photo of an electronic device.")
         response["supported_devices"] = (validation_info or {}).get("supported_devices", [
@@ -196,6 +197,12 @@ def build_enhanced_response(
             "Laptops & Computers", "Smart Home Devices",
             "Home Appliances", "Circuit Boards & Arduino",
         ])
+        # Generate contextual rejection message based on what was detected
+        response["message"] = _get_contextual_rejection_message(
+            image_category,
+            (validation_info or {}).get("what_i_see", ""),
+            (validation_info or {}).get("rejection_reason", ""),
+        )
 
     # Low confidence specific fields
     if answer_type == "ask_for_better_input":
@@ -212,12 +219,25 @@ def build_enhanced_response(
 
 def _build_device_info(device_info: Dict[str, Any]) -> Dict[str, Any]:
     """Build the device_info section of the response."""
+    brand = device_info.get("brand", "unknown")
+    model = device_info.get("model", "not visible")
+    
+    # Only include brand_model_guidance if brand/model could NOT be identified
+    brand_unknown = not brand or brand.lower() in ("unknown", "generic", "")
+    model_unknown = not model or model.lower() in ("not visible", "")
+    
+    if brand_unknown or model_unknown:
+        guidance = device_info.get("brand_model_guidance")
+    else:
+        # Brand and model successfully identified - no guidance needed
+        guidance = None
+    
     return {
         "device_category": device_info.get("device_category", "unknown"),
         "device_type": device_info.get("device_type", "Unknown"),
-        "brand": device_info.get("brand", "unknown"),
-        "model": device_info.get("model", "not visible"),
-        "brand_model_guidance": device_info.get("brand_model_guidance"),
+        "brand": brand or "unknown",
+        "model": model or "not visible",
+        "brand_model_guidance": guidance,
         "confidence": device_info.get("device_confidence", 0.0),
         "components": device_info.get("components", []),
     }
@@ -330,6 +350,59 @@ def _build_visualizations(
         })
 
     return visualizations
+
+
+def _get_contextual_rejection_message(
+    image_category: str,
+    what_i_see: str,
+    rejection_reason: str,
+) -> str:
+    """Generate a contextual rejection message based on what was actually detected in the image."""
+    category = (image_category or "").lower().replace(" ", "_")
+    
+    contextual_messages = {
+        "person": (
+            f"This image shows people, not an electronic device. "
+            f"FixIt AI helps troubleshoot electronic devices like routers, printers, and circuit boards. "
+            f"Please upload a photo of the device you need help with."
+        ),
+        "software_screenshot": (
+            f"This appears to be a software interface or screenshot. "
+            f"FixIt AI troubleshoots physical electronic devices. "
+            f"For software help, please consult the software's help documentation."
+        ),
+        "document": (
+            f"This appears to be a document or text content. "
+            f"FixIt AI needs a photo of the physical device you want to troubleshoot."
+        ),
+        "nature": (
+            f"This appears to be a nature or outdoor scene. "
+            f"FixIt AI is designed to help with electronic device troubleshooting. "
+            f"Please upload a photo of the device you need assistance with."
+        ),
+        "food": (
+            f"This appears to be a food or beverage image. "
+            f"FixIt AI helps troubleshoot electronic devices. "
+            f"Please upload a photo of the device you need help with."
+        ),
+        "artwork": (
+            f"This appears to be artwork or an illustration. "
+            f"FixIt AI needs a real photograph of a physical electronic device to provide troubleshooting help."
+        ),
+    }
+    
+    # Use contextual message if available, otherwise use what_i_see for a custom message
+    if category in contextual_messages:
+        return contextual_messages[category]
+    
+    if what_i_see:
+        return (
+            f"I can see {what_i_see}, but this doesn't appear to be an electronic device I can help troubleshoot. "
+            f"FixIt AI helps with devices like routers, printers, laptops, and appliances. "
+            f"Please upload a photo of the device you need help with."
+        )
+    
+    return rejection_reason or "This image is not suitable for device troubleshooting. Please upload a photo of an electronic device."
 
 
 def _get_message_for_type(

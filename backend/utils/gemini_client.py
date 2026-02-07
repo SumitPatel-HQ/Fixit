@@ -1,4 +1,5 @@
 import os
+import re
 import google.genai as genai
 from dotenv import load_dotenv
 import time
@@ -40,10 +41,10 @@ CACHE_TTL_SECONDS = 300  # 5 minutes
 # API call tracking
 api_call_count = 0
 
-# RPD tracking (Gemini 2.5 Flash: 1 request per call, 20 requests per day free tier)
+# RPD tracking (Gemini 2.5 Flash: 1 request per call, 1500 requests per day free tier)
 RPD_PER_CALL = 1
 rpd_consumed_today = 0
-MAX_RPD_DAILY = 20  # Free tier limit 
+MAX_RPD_DAILY = 1500  # Free tier limit for Gemini Flash
 
 class GeminiClient:
     def __init__(self, model_name: str = DEFAULT_MODEL):
@@ -163,17 +164,18 @@ Perform FIVE analyses in one response:
    - Identify the exact device type (be specific - Router, Laser Printer, Gaming Laptop, Microwave, etc.)
    - Brand and model ONLY IF clearly visible (logos, labels readable)
    - If brand/model NOT visible: set brand to "unknown", model to "not visible"
-   - Add brand_model_guidance: instructions on where to find brand/model on this device type
    - Your confidence level (0.0 to 1.0)
    - Classify confidence as: "high" (0.6+), "medium" (0.3-0.6), or "low" (<0.3)
    - List ALL visible components you can identify
    - Brief reasoning for your identification
-
-   BRAND/MODEL RULES:
-   - For generic devices (Arduino, breadboard, generic cables): skip brand detection entirely, set brand to "generic"
+   
+   BRAND/MODEL GUIDANCE RULES:
+   - If you CAN clearly read the brand and model: return them and set brand_model_guidance to null
+   - ONLY provide brand_model_guidance if you CANNOT identify brand or model:
+     Example: "To identify the model, photograph the label on the back panel or underside"
+   - For generic devices (Arduino, breadboard, generic cables): skip brand detection entirely, set brand to "generic", brand_model_guidance to null
    - For locate_only or identify_only intents: skip brand/model detection
    - NEVER guess brand from visual similarity - only report if text/logo is readable
-   - If not visible: brand_model_guidance should say where to look (e.g., "Check label on back panel")
 
 3. QUERY UNDERSTANDING & INTENT CLASSIFICATION
    Classify the user's PRIMARY intent:
@@ -184,23 +186,93 @@ Perform FIVE analyses in one response:
    - "compare" → User wants to compare options (future)
    - "unclear" → Cannot determine intent
 
+   MULTI-INTENT DETECTION:
+   First, scan the query for distinct intent markers:
+     Explain intents: "explain", "what is", "how does", "what does", "describe"
+     Identify intents: "what are", "which", "identify", "recognize"
+     Locate intents: "where is", "locate", "find", "show me"
+     Repair intents: "fix", "repair", "troubleshoot", "solve", "resolve", "replace", "remove"
+   
+   Count DISTINCT intent categories present (not just keywords).
+   Look for conjunctions ("and", "&") connecting DIFFERENT intent phrases.
+   Example: "explain router and repair it" → 2 intents (explain + repair) → needs clarification
+   Example: "router and modem" → 1 intent (just listing devices, not 2 intents)
+   Example: "where is RAM and how to remove it" → 2 intents but COMPATIBLE (locate + procedure) → allow as mixed
+   
+   COMPATIBLE intent pairs (can proceed as mixed without clarification):
+   - locate + procedure ("where is X and how to X")
+   - identify + locate ("what is X and where is it")
+   - identify + explain ("what is this" implies both)
+   
+   INCOMPATIBLE intent pairs (MUST ask clarification):
+   - explain + repair (too much content)
+   - explain + identify + repair (3+ intents)
+   - Any combination of 3+ distinct intents
+
+   "WHAT IS THIS" SPECIAL HANDLING:
+   - "what is this" / "what is this device" → PRIMARY intent is explain, SECONDARY is identify
+     → Set answer_type = "mixed" (include BOTH explanation AND component identification)
+     → Set needs_explanation = true
+   - "what are these components" → identify intent → identify_only
+   - "what is [specific component]" → explain intent → explain_only
+
+   LED ANALYSIS SPECIAL HANDLING:
+   - When query asks about LEDs, lights, or indicators on a device:
+     → The model MUST analyze the actual LEDs visible in the image
+     → Describe what you SEE: colors, positions, whether solid or blinking
+     → Then explain what each LED typically indicates for this device type
+     → Do NOT provide generic LED explanations without referencing the actual image
+     → Example: "I see a solid green LED on the left - this indicates power is on.
+                I see a blinking amber LED in the center - this typically means..."
+
    Determine the answer_type (controls what content to generate):
    - "locate_only" → Only show component location info
    - "identify_only" → Only show detected components list
    - "explain_only" → Only show how-it-works explanation
    - "troubleshoot_steps" → Show full repair workflow
-   - "mixed" → ONLY when user explicitly uses "and" to ask 2+ clear questions
-   - "ask_clarifying_questions" → Show only questions, no other content
+   - "mixed" → When user explicitly asks 2+ compatible questions, OR "what is this" queries
+   - "ask_clarifying_questions" → When 2+ INCOMPATIBLE intents detected, OR truly ambiguous query
    - "reject_invalid_image" → Image is not a device
    - "ask_for_better_input" → Image is too blurry/dark/unclear
-   - "safety_warning_only" → Dangerous situation detected
+   - "safety_warning_only" → ONLY for critical safety: fire, electric shock, chemical/battery hazard, actively dangerous
+
+   CLARIFICATION FOR MULTI-INTENT:
+   If 2+ incompatible intents detected, set:
+   - answer_type = "ask_clarifying_questions"
+   - clarification_needed = true
+   - clarifying_questions should list the detected intents as options, e.g.:
+     "Your question covers multiple topics:\n(A) Explanation of what a router is\n(B) Identification of LED meanings\n(C) Repair guidance\nWhich would you like help with first? Or should I address all three in order?"
 
 4. SAFETY DETECTION
    Check for ANY safety-critical indicators:
    - In the QUERY: "burning", "smoke", "melting", "swelling battery", "electric shock", "exposed mains", "sparking", "fire", "disconnect power"
    - In the IMAGE: visible damage, melting, burn marks, swollen batteries, exposed wires
-   - If ANY safety risk found: set safety_detected to true and override answer_type to "safety_warning_only"
-   - safety_message should contain specific safety instructions
+   
+   SAFETY SEVERITY CLASSIFICATION (CRITICAL - read carefully):
+   
+   CRITICAL safety (override to safety_warning_only, BLOCK repair steps):
+   - Swelling/swollen battery
+   - Burning smell, active smoke, fire
+   - Electric shock risk, exposed mains wiring
+   - Sparking, melting components
+   - Chemical leak from battery
+   These are ACTIVELY DANGEROUS - user must stop and seek professional help.
+   
+   WARNING safety (allow repair WITH safety cautions, do NOT override answer_type):
+   - Paper jam (fuser may be hot but manageable with precautions)
+   - General high-temperature components after operation
+   - Moving parts (fans, belts) when powered off
+   - Toner/ink handling
+   - Standard disassembly (static discharge risk)
+   These are manageable risks - include safety warnings IN the repair steps.
+   
+   Rules:
+   - Set safety_detected = true for BOTH critical and warning levels
+   - Set override_answer_type = true ONLY for CRITICAL safety
+   - Set override_answer_type = false for WARNING safety (let repair steps proceed with cautions)
+   - Set safety_severity = "critical" or "warning" accordingly
+   - safety_message should be specific to the hazard
+   - For paper jams, toner issues, simple mechanical problems: ALWAYS set override_answer_type = false
 
 5. MULTI-TARGET EXTRACTION
    - Does the query mention MULTIPLE components? (look for "&", "and", commas between components)
@@ -218,13 +290,16 @@ CRITICAL RULES:
 - If multiple devices visible and query is ambiguous: set clarification_needed to true
 
 QUERY CLASSIFICATION DETAILS:
-- "what is this" / "what component" / "identify" → identify intent → identify_only
+- "what is this" / "what is this device" → explain + identify intent → mixed (with needs_explanation=true)
+- "what component" / "identify" → identify intent → identify_only
+- "what are these components" → identify intent → identify_only
 - "where is" / "locate" / "find" → locate intent → locate_only
 - "how does it work" / "explain" / "architecture" → explain intent → explain_only
 - "not working" / "fix" / "repair" / "replace" / "remove" / "install" → troubleshoot intent → troubleshoot_steps
 - "how to" + action verb → troubleshoot intent → troubleshoot_steps
 - Vague: "help with this" / "this thing" → unclear → ask_clarifying_questions
 - "Don't give steps, just diagnose" → diagnose_only
+- Multi-intent with incompatible pairs → ask_clarifying_questions (list detected intents as options)
 
 Return ONLY valid JSON with this structure:
 {{
@@ -258,12 +333,15 @@ Return ONLY valid JSON with this structure:
     "needs_localization": true,
     "needs_steps": false,
     "needs_explanation": false,
+    "multi_intent_count": 1,
+    "detected_intents": ["locate"],
     "clarification_needed": false,
     "clarifying_questions": [],
     "confidence": 0.9
   }},
   "safety": {{
     "safety_detected": false,
+    "safety_severity": "none",
     "safety_keywords_found": [],
     "safety_message": null,
     "override_answer_type": false
@@ -476,6 +554,182 @@ Always mention when to seek professional help."""
 
         return "; ".join(summaries) if summaries else "Google Search"
 
+    def _fix_malformed_json(self, text: str) -> str:
+        """Aggressively fix common JSON syntax errors from Gemini."""
+        original_length = len(text)
+        
+        # Remove markdown code fences
+        text = text.replace("```json", "").replace("```", "").strip()
+        
+        # Fix multi-line string values (the main culprit)
+        # This handles cases where Gemini splits string values across multiple lines
+        fixed_text = []
+        in_string = False
+        escape_next = False
+        
+        i = 0
+        while i < len(text):
+            char = text[i]
+            
+            # Handle escape sequences
+            if escape_next:
+                fixed_text.append(char)
+                escape_next = False
+                i += 1
+                continue
+            
+            if char == '\\':
+                fixed_text.append(char)
+                escape_next = True
+                i += 1
+                continue
+            
+            # Handle quotes
+            if char == '"':
+                in_string = not in_string
+                fixed_text.append(char)
+                i += 1
+                continue
+            
+            # If we're inside a string and encounter a newline, replace it with a space
+            if in_string and char == '\n':
+                # Replace newline with space to keep the string on one line
+                fixed_text.append(' ')
+                i += 1
+                continue
+            
+            # Normal character
+            fixed_text.append(char)
+            i += 1
+        
+        text = ''.join(fixed_text)
+        
+        # Now apply minimal fixes - avoid regex that could break strings
+        # Fix trailing commas before closing braces/brackets
+        text = re.sub(r',(\s*[}\]])', r'\1', text)
+        
+        # Remove any trailing commas at end of objects/arrays
+        text = re.sub(r',\s*}', '}', text)
+        text = re.sub(r',\s*]', ']', text)
+        
+        logger.debug(f"JSON fix: {original_length} chars -> {len(text)} chars")
+        return text
+
+    def _try_salvage_truncated_json(self, text: str) -> Optional[dict]:
+        """Attempt to salvage a truncated JSON response by closing open structures."""
+        # First apply standard fixes
+        text = self._fix_malformed_json(text)
+        
+        # Find the first '{'
+        start_idx = text.find('{')
+        if start_idx == -1:
+            return None
+        
+        text = text[start_idx:]
+        
+        # Track open brackets/braces and string state
+        open_braces = 0
+        open_brackets = 0
+        in_string = False
+        escape_next = False
+        last_structural_pos = 0  # Last position with valid structural JSON
+        
+        for i, char in enumerate(text):
+            if escape_next:
+                escape_next = False
+                continue
+            if char == '\\':
+                escape_next = True
+                continue
+            if char == '"':
+                in_string = not in_string
+                continue
+            if in_string:
+                continue
+            
+            if char == '{':
+                open_braces += 1
+            elif char == '}':
+                open_braces -= 1
+                if open_braces == 0 and open_brackets == 0:
+                    last_structural_pos = i + 1
+            elif char == '[':
+                open_brackets += 1
+            elif char == ']':
+                open_brackets -= 1
+        
+        # If already balanced, just parse
+        if open_braces == 0 and open_brackets == 0:
+            try:
+                return json.loads(text)
+            except json.JSONDecodeError:
+                pass
+        
+        # Response is truncated - close the open string (if in one) and all open structures
+        salvaged = text.rstrip()
+        
+        # If we're in a string, close it
+        if in_string:
+            # Remove partial content back to last clean break point
+            # Find the last complete key-value pair
+            salvaged = salvaged.rstrip()
+            if not salvaged.endswith('"'):
+                salvaged += '"'
+        
+        # Remove any trailing comma
+        salvaged = salvaged.rstrip(',')
+        salvaged = salvaged.rstrip()
+        
+        # Close open brackets then braces
+        for _ in range(open_brackets):
+            salvaged += ']'
+        for _ in range(open_braces):
+            salvaged += '}'
+        
+        try:
+            result = json.loads(salvaged)
+            logger.info(f"Successfully salvaged truncated JSON (closed {open_braces} braces, {open_brackets} brackets)")
+            return result
+        except json.JSONDecodeError:
+            # More aggressive: try to find the last complete value and close from there
+            # Walk back to find last valid closing brace/bracket/quote+comma
+            for trim_pos in range(len(text) - 1, max(0, len(text) - 500), -1):
+                candidate = text[:trim_pos].rstrip().rstrip(',')
+                # Recount open structures
+                ob, obk, ins, esc = 0, 0, False, False
+                for ch in candidate:
+                    if esc:
+                        esc = False
+                        continue
+                    if ch == '\\':
+                        esc = True
+                        continue
+                    if ch == '"':
+                        ins = not ins
+                        continue
+                    if ins:
+                        continue
+                    if ch == '{':
+                        ob += 1
+                    elif ch == '}':
+                        ob -= 1
+                    elif ch == '[':
+                        obk += 1
+                    elif ch == ']':
+                        obk -= 1
+                
+                if ins:
+                    candidate += '"'
+                closing = ']' * obk + '}' * ob
+                try:
+                    result = json.loads(candidate + closing)
+                    logger.info(f"Salvaged truncated JSON by trimming {len(text) - trim_pos} chars")
+                    return result
+                except json.JSONDecodeError:
+                    continue
+        
+        return None
+
     def generate_response(
         self, 
         prompt: list, 
@@ -536,39 +790,47 @@ Always mention when to seek professional help."""
                         result = json.loads(response.text)
                     except json.JSONDecodeError as json_err:
                         # Fallback: clean response and try to extract valid JSON
-                        logger.warning(f"JSON Decode Failed: {json_err}, attempting to clean response text.")
+                        logger.warning(f"JSON Decode Failed: {json_err}, attempting to fix malformed JSON.")
+                        logger.debug(f"Raw response length: {len(response.text)} chars")
                         
                         try:
-                            # Remove markdown code fences
-                            text = response.text.replace("```json", "").replace("```", "").strip()
+                            # Aggressively fix common JSON issues
+                            fixed_text = self._fix_malformed_json(response.text)
                             
-                            # Try parsing the cleaned text
-                            result = json.loads(text)
-                            logger.info("Successfully parsed JSON after cleaning markdown")
+                            # Try parsing the fixed text
+                            result = json.loads(fixed_text)
+                            logger.info("Successfully parsed JSON after fixing malformed syntax")
                         except json.JSONDecodeError as clean_err:
                             # If still failing, try to extract just the first complete JSON object
-                            logger.info(f"Extracting first JSON object (Extra data detected)")
+                            logger.warning(f"Still failing after fixes: {clean_err}")
                             
                             try:
                                 # Find the first '{' and try to parse from there
-                                start_idx = text.find('{')
+                                start_idx = fixed_text.find('{')
                                 if start_idx != -1:
                                     # Use a JSON decoder to parse and stop at the first complete object
                                     decoder = json.JSONDecoder()
-                                    result, end_idx = decoder.raw_decode(text[start_idx:])
-                                    extra_content = text[start_idx + end_idx:].strip()
+                                    result, end_idx = decoder.raw_decode(fixed_text[start_idx:])
+                                    extra_content = fixed_text[start_idx + end_idx:].strip()
                                     if extra_content:
                                         logger.debug(f"Ignored extra content after JSON ({len(extra_content)} chars)")
                                     logger.info("Successfully extracted JSON object")
                                 else:
                                     raise ValueError("No JSON object found in response")
-                            except Exception as final_err:
-                                logger.error(f"Failed all JSON extraction attempts: {final_err}")
-                                logger.error(f"Response preview: {response.text[:500]}...")
-                                raise HTTPException(
-                                    status_code=500,
-                                    detail=f"Gemini returned invalid JSON format. Error: {final_err}"
-                                )
+                            except Exception as extract_err:
+                                # Last resort: try to salvage truncated JSON
+                                logger.warning(f"Standard extraction failed: {extract_err}, attempting truncation recovery...")
+                                salvaged = self._try_salvage_truncated_json(response.text)
+                                if salvaged is not None:
+                                    result = salvaged
+                                    logger.info("Successfully recovered truncated JSON response")
+                                else:
+                                    logger.error(f"Failed all JSON extraction attempts including truncation recovery")
+                                    logger.error(f"Response preview: {response.text[:1000]}...")
+                                    raise HTTPException(
+                                        status_code=500,
+                                        detail=f"Gemini returned invalid JSON format. Error: {extract_err}"
+                                    )
                 else:
                     result = {"text": response.text}
 

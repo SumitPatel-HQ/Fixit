@@ -21,7 +21,7 @@ TROUBLESHOOT_SCHEMA = {
             "properties": {
                 "issue": {"type": "string"},
                 "severity": {"type": "string", "enum": ["low", "medium", "high", "critical"]},
-                "safety_warning": {"type": ["string", "null"]},
+                "safety_warning": {"type": "string", "nullable": True},
                 "possible_causes": {"type": "array", "items": {"type": "string"}},
                 "indicators": {"type": "array", "items": {"type": "string"}},
                 "professional_needed": {"type": "boolean"}
@@ -37,7 +37,7 @@ TROUBLESHOOT_SCHEMA = {
                     "instruction": {"type": "string"},
                     "visual_cue": {"type": "string"},
                     "estimated_time": {"type": "string"},
-                    "safety_note": {"type": ["string", "null"]}
+                    "safety_note": {"type": "string", "nullable": True}
                 },
                 "required": ["step_number", "instruction", "visual_cue", "estimated_time"]
             }
@@ -57,7 +57,7 @@ DIAGNOSIS_SCHEMA = {
             "properties": {
                 "issue": {"type": "string"},
                 "severity": {"type": "string", "enum": ["low", "medium", "high", "critical"]},
-                "safety_warning": {"type": ["string", "null"]},
+                "safety_warning": {"type": "string", "nullable": True},
                 "possible_causes": {"type": "array", "items": {"type": "string"}},
                 "indicators": {"type": "array", "items": {"type": "string"}},
                 "professional_needed": {"type": "boolean"}
@@ -429,7 +429,8 @@ Keep steps:
             response = gemini_client.generate_response(
                 prompt=prompt,
                 response_schema=TROUBLESHOOT_SCHEMA,
-                temperature=0.3
+                temperature=0.3,
+                max_output_tokens=4000
             )
 
             if isinstance(response, dict) and response.get("error"):
@@ -504,7 +505,8 @@ Be honest about limitations while still being helpful.
             response = gemini_client.generate_response(
                 prompt=prompt,
                 response_schema=TROUBLESHOOT_SCHEMA,
-                temperature=0.3
+                temperature=0.3,
+                max_output_tokens=4000
             )
 
             if isinstance(response, dict) and response.get("error"):

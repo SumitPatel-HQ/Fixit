@@ -18,7 +18,7 @@ QUERY_PARSE_SCHEMA = {
             "type": "string",
             "enum": ["identify", "locate", "troubleshoot", "procedure", "general_info", "unclear"]
         },
-        "target_component": {"type": ["string", "null"]},
+        "target_component": {"type": "string", "nullable": True},
         "action_requested": {"type": "string"},
         "needs_localization": {"type": "boolean"},
         "needs_steps": {"type": "boolean"},

@@ -19,7 +19,7 @@ IMAGE_VALIDATION_SCHEMA = {
         "is_physical_device": {"type": "boolean"},
         "confidence": {"type": "number"},
         "what_i_see": {"type": "string"},
-        "rejection_reason": {"type": ["string", "null"]}
+        "rejection_reason": {"type": "string", "nullable": True}
     },
     "required": ["image_category", "is_physical_device", "confidence", "what_i_see"]
 }

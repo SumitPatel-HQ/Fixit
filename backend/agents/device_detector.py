@@ -17,8 +17,8 @@ DEVICE_DETECTION_SCHEMA = {
     "type": "object",
     "properties": {
         "device_type": {"type": "string"},
-        "brand": {"type": ["string", "null"]},
-        "model": {"type": ["string", "null"]},
+        "brand": {"type": "string", "nullable": True},
+        "model": {"type": "string", "nullable": True},
         "components": {"type": "array", "items": {"type": "string"}},
         "device_confidence": {"type": "number"},
         "reasoning": {"type": "string"},

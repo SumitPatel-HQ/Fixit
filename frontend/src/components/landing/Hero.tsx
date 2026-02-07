@@ -25,7 +25,7 @@ export function Hero() {
    return (
       <section className="relative pt-24 pb-12 md:pt-32 md:pb-20 px-4 md:px-6 overflow-hidden">
          {/* Subtle gradient background */}
-         <div className="absolute inset-x-0 top-0 h-[500px] bg-gradient-to-b from-accent/10 via-transparent to-transparent pointer-events-none" />
+         <div className="absolute inset-x-0 top-0 h-[1500px] bg-gradient-to-b from-accent/10 via-transparent to-transparent pointer-events-none" />
 
          <motion.div
             variants={container}
@@ -94,7 +94,6 @@ export function Hero() {
                      {/* Simplified high-fidelity dashboard wireframe */}
                      <div className="flex items-center justify-between pb-4 md:pb-6 border-b border-white/5">
                         <div className="flex items-center gap-2 md:gap-4">
-                           <div className="h-6 w-6 md:h-8 md:w-8 bg-white/5 rounded-lg border border-white/5" />
                            <div className="h-2.5 w-20 md:h-3 md:w-32 bg-white/5 rounded-full" />
                         </div>
                         <div className="flex gap-2 md:gap-3">

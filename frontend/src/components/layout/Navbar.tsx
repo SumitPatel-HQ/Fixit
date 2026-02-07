@@ -19,10 +19,9 @@ export function Navbar() {
          >
             <div className="flex md:grid md:grid-cols-3 items-center justify-between px-4 md:px-6 h-14 bg-background/40 backdrop-blur-xl border border-white/5 rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
                {/* Left: Logo */}
-               <div className="flex justify-start">
+               <div className="flex justify-start px-5">
                   <Link href="/" className="flex items-center gap-2 group transition-transform hover:scale-105">
-                     <div className="w-6 h-6 bg-primary rounded-md shadow-[0_0_12px_rgba(255,255,255,0.2)]" />
-                     <span className="text-lg font-bold tracking-tight">Fixit</span>
+                     <span className="text-xl font-bold tracking-tight">Fixit</span>
                   </Link>
                </div>
 
@@ -32,7 +31,7 @@ export function Navbar() {
                      <Link
                         key={item}
                         href={`#${item.toLowerCase()}`}
-                        className="text-sm font-medium text-muted-foreground hover:text-foreground transition-all hover:scale-105"
+                        className="text-md font-medium text-muted-foreground hover:text-foreground transition-all hover:scale-105"
                      >
                         {item}
                      </Link>
@@ -54,7 +53,7 @@ export function Navbar() {
                   >
                      {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
                   </Button>
-                  <Button variant="ghost" size="sm" className="hidden md:inline-flex rounded-full text-xs font-semibold hover:bg-white/5">
+                  <Button variant="ghost" size="sm" className="hidden md:inline-flex rounded-full text-md font-semibold hover:bg-white/5 cursor-pointer">
                      Sign In
                   </Button>
                </div>

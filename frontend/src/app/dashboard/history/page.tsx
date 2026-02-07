@@ -1,13 +1,13 @@
-export default function InputHubPage() {
+export default function HistoryPage() {
    return (
       <div className="space-y-6">
          {/* Page Header */}
          <div className="space-y-2">
             <h1 className="text-4xl font-display font-bold text-foreground">
-               Input Hub
+               History
             </h1>
             <p className="text-muted-foreground text-lg">
-               Upload images and start your device diagnostics
+               Review past diagnostics and repair history
             </p>
          </div>
 
@@ -25,16 +25,16 @@ export default function InputHubPage() {
                         strokeLinecap="round"
                         strokeLinejoin="round"
                         strokeWidth={2}
-                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
                      />
                   </svg>
                </div>
                <h3 className="text-xl font-display font-semibold text-foreground">
-                  Input Hub Content
+                  History Content
                </h3>
                <p className="text-muted-foreground max-w-md">
-                  Content will be added here - Upload interface for device images and
-                  initial diagnostics
+                  Content will be added here - Timeline of past diagnostics,
+                  repairs, and device history
                </p>
             </div>
          </div>

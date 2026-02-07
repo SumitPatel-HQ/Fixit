@@ -23,10 +23,14 @@ SPATIAL_MULTI_SCHEMA = {
                 "type": "object",
                 "properties": {
                     "component_name": {"type": "string"},
+                    "target": {"type": "string"},
                     "status": {"type": "string", "enum": ["found", "not_visible", "not_present", "ambiguous"]},
+                    "component_visible": {"type": "boolean"},
                     "spatial_description": {"type": "string"},
+                    "landmark_description": {"type": "string"},
                     "bounding_box": {
-                        "type": ["object", "null"],
+                        "type": "object",
+                        "nullable": True,
                         "properties": {
                             "x_min": {"type": "number"},
                             "y_min": {"type": "number"},
@@ -35,9 +39,9 @@ SPATIAL_MULTI_SCHEMA = {
                         }
                     },
                     "confidence": {"type": "number"},
-                    "suggested_action": {"type": ["string", "null"]},
+                    "suggested_action": {"type": "string", "nullable": True},
                     "visible_alternatives": {"type": "array", "items": {"type": "string"}},
-                    "typical_location": {"type": ["string", "null"]},
+                    "typical_location": {"type": "string", "nullable": True},
                     "reasoning": {"type": "string"}
                 },
                 "required": ["component_name", "status", "spatial_description", "confidence"]
@@ -52,9 +56,13 @@ SPATIAL_SINGLE_SCHEMA = {
     "properties": {
         "component_name": {"type": "string"},
         "component_visible": {"type": "boolean"},
+        "visibility_status": {"type": "string"},
+        "visibility_reason": {"type": "string"},
         "spatial_description": {"type": "string"},
+        "landmark_description": {"type": "string"},
         "bounding_box": {
-            "type": ["object", "null"],
+            "type": "object",
+            "nullable": True,
             "properties": {
                 "x_min": {"type": "number"},
                 "y_min": {"type": "number"},
@@ -63,11 +71,11 @@ SPATIAL_SINGLE_SCHEMA = {
             }
         },
         "confidence": {"type": "number"},
-        "suggested_action": {"type": ["string", "null"]},
+        "suggested_action": {"type": "string", "nullable": True},
         "visible_alternatives": {"type": "array", "items": {"type": "string"}},
-        "typical_location": {"type": ["string", "null"]},
+        "typical_location": {"type": "string", "nullable": True},
         "disambiguation_needed": {"type": "boolean"},
-        "ambiguity_note": {"type": ["string", "null"]}
+        "ambiguity_note": {"type": "string", "nullable": True}
     },
     "required": ["component_name", "component_visible", "spatial_description", "confidence"]
 }
@@ -81,7 +89,7 @@ class SpatialMapper:
     """
 
     # Minimum confidence to provide bounding box
-    LOCALIZATION_THRESHOLD = 0.4
+    LOCALIZATION_THRESHOLD = 0.6
 
     def __init__(self):
         pass
@@ -132,6 +140,8 @@ class SpatialMapper:
         prompt = [
             f"""You are a spatial reasoning system for FixIt AI.
 
+This image is exactly {width} x {height} pixels.
+
 Your task: Locate ALL of these components in this image: {targets_str}
 {device_str}
 
@@ -150,8 +160,19 @@ STAGE 2 - ROUGH LOCATION (only if visible):
 - What nearby LANDMARK helps identify it? (e.g., "near USB port cluster", "below CPU socket")
 
 STAGE 3 - PRECISE LOCATION (only if Stage 2 passes):
-- Provide a bounding box with coordinates scaled 0-1000
-- Only if confidence > 0.4
+- Return bounding box in ABSOLUTE PIXEL COORDINATES (not normalized 0-1 values).
+- The image is {width}x{height} pixels. Your coordinates must be within these bounds.
+- Example: For a {width}x{height} image, if component is at top-left quarter:
+  {{"x_min": 50, "y_min": 40, "x_max": {width // 4}, "y_max": {height // 4}}}
+  These are actual pixel positions, NOT percentages or 0-1000 scaled values.
+- Only if confidence >= 0.6
+
+IMPORTANT BOUNDING BOX RULES:
+- The bounding box will be drawn on the image for the user to see.
+- It MUST accurately surround the component, not just point near it.
+- Be conservative: a slightly larger box is better than missing the component.
+- Landmark description: explain position relative to nearby visible features.
+- For multi-target: each bbox must be independent. Prevent overlapping boxes unless components physically overlap.
 
 Return JSON:
 {{
@@ -162,7 +183,7 @@ Return JSON:
             "component_visible": true/false,
             "spatial_description": "natural language location",
             "landmark_description": "nearby landmark reference like 'Next to power connector'",
-            "bounding_box": null OR {{"ymin": 0, "xmin": 0, "ymax": 0, "xmax": 0}},
+            "bounding_box": null OR {{"x_min": pixel_int, "y_min": pixel_int, "x_max": pixel_int, "y_max": pixel_int}},
             "confidence": 0.0 to 1.0,
             "reasoning": "evidence-based explanation for this status",
             "suggested_action": "what user should do if not found",
@@ -174,13 +195,15 @@ Return JSON:
 
 CRITICAL RULES:
 - Return one entry for EACH requested target
+- Bounding box coordinates MUST be absolute pixel values within 0..{width} (x) and 0..{height} (y)
+- x_min < x_max and y_min < y_max ALWAYS
 - For "not_visible": Evidence must explain what's blocking view (wrong angle, a cover/shield, out of frame)
   Action: Suggest specific angle or side to photograph
 - For "not_present": Evidence must explain why (no mounting points, device type doesn't use this, integrated differently)
   Action: Suggest where to check or what alternative exists
 - For "ambiguous": List all matching components with brief location descriptions
   Action: Ask user to specify which one
-- Only provide bounding_box when status is "found" and confidence > 0.4
+- Only provide bounding_box when status is "found" and confidence >= 0.6
 """,
             image,
         ]
@@ -241,6 +264,8 @@ CRITICAL RULES:
         prompt = [
             f"""You are a spatial reasoning system for FixIt AI.
 
+This image is exactly {width} x {height} pixels.
+
 Your task: Locate "{component_name}" in this image.
 {device_str}
 
@@ -256,8 +281,18 @@ STAGE 2 - ROUGH LOCATION (only if Stage 1 passes):
 - What is it near or adjacent to? Provide a LANDMARK reference.
 
 STAGE 3 - PRECISE LOCATION (only if Stage 2 passes):
-- Can you provide a bounding box?
-- Only provide coordinates if you can CLEARLY see the component
+- Return bounding box in ABSOLUTE PIXEL COORDINATES (not normalized 0-1 values).
+- The image is {width}x{height} pixels. Your coordinates must be within these bounds.
+- Example: For a {width}x{height} image, if component is at top-left quarter:
+  {{"x_min": 50, "y_min": 40, "x_max": {width // 4}, "y_max": {height // 4}}}
+  These are actual pixel positions, NOT percentages or 0-1000 scaled values.
+- Only if confidence >= 0.6
+
+IMPORTANT BOUNDING BOX RULES:
+- The bounding box will be drawn on the image for the user to see.
+- It MUST accurately surround the component, not just point near it.
+- Be conservative: a slightly larger box is better than missing the component.
+- Landmark description: explain position relative to nearby visible features.
 
 BE HONEST:
 - If you can't see it, say "not_visible" and explain with evidence
@@ -274,10 +309,10 @@ Return JSON:
     "spatial_description": "natural language location like 'bottom right corner, next to the power port' OR reason not visible",
     "landmark_description": "nearby landmark reference like 'Near the USB port cluster' or 'Below the CPU socket'",
     "bounding_box": null OR {{
-        "ymin": 0-1000 scaled,
-        "xmin": 0-1000 scaled,
-        "ymax": 0-1000 scaled,
-        "xmax": 0-1000 scaled
+        "x_min": absolute_pixel_int,
+        "y_min": absolute_pixel_int,
+        "x_max": absolute_pixel_int,
+        "y_max": absolute_pixel_int
     }},
     "confidence": 0.0 to 1.0,
     "suggested_action": "what user should do if component not found",
@@ -287,7 +322,9 @@ Return JSON:
     "ambiguity_note": null
 }}
 
-Only provide bounding_box if confidence > 0.4 and you can CLEARLY see the component.
+Coordinates MUST be absolute pixel values: x in 0..{width}, y in 0..{height}.
+x_min < x_max and y_min < y_max ALWAYS.
+Only provide bounding_box if confidence >= 0.6 and you can CLEARLY see the component.
 """,
             image,
         ]
@@ -309,6 +346,53 @@ Only provide bounding_box if confidence > 0.4 and you can CLEARLY see the compon
         except Exception as e:
             logger.error(f"Spatial mapping failed: {e}")
             return self._create_error_response(component_name, str(e))
+
+    def _validate_and_clamp_bbox(self, bbox: Dict[str, Any], width: int, height: int) -> Optional[Dict[str, int]]:
+        """Validate bounding box coordinates and clamp to image bounds.
+        Handles both absolute pixel coords and 0-1000 scaled coords (legacy).
+        Returns pixel coords dict or None if invalid."""
+        try:
+            # Try reading absolute pixel coords first (new format)
+            x_min = float(bbox.get("x_min", bbox.get("xmin", 0)))
+            y_min = float(bbox.get("y_min", bbox.get("ymin", 0)))
+            x_max = float(bbox.get("x_max", bbox.get("xmax", 0)))
+            y_max = float(bbox.get("y_max", bbox.get("ymax", 0)))
+
+            # Heuristic: if all values are <= 1.0, they are normalized 0-1
+            if x_max <= 1.0 and y_max <= 1.0 and x_min <= 1.0 and y_min <= 1.0:
+                x_min = x_min * width
+                y_min = y_min * height
+                x_max = x_max * width
+                y_max = y_max * height
+            # Heuristic: if values are in 0-1000 range but image is larger, they're scaled
+            elif x_max <= 1000 and y_max <= 1000 and (width > 1000 or height > 1000):
+                x_min = (x_min / 1000.0) * width
+                y_min = (y_min / 1000.0) * height
+                x_max = (x_max / 1000.0) * width
+                y_max = (y_max / 1000.0) * height
+            # Otherwise treat as absolute pixel coords (the normal case now)
+
+            # Validate: x_min < x_max, y_min < y_max
+            if x_min >= x_max or y_min >= y_max:
+                logger.warning(f"Invalid bbox: x_min({x_min}) >= x_max({x_max}) or y_min({y_min}) >= y_max({y_max})")
+                return None
+
+            # Clamp to image bounds
+            x_min = max(0, min(int(x_min), width))
+            y_min = max(0, min(int(y_min), height))
+            x_max = max(0, min(int(x_max), width))
+            y_max = max(0, min(int(y_max), height))
+
+            # Final check after clamping
+            if x_min >= x_max or y_min >= y_max:
+                logger.warning(f"Bbox collapsed after clamping: ({x_min},{y_min})-({x_max},{y_max})")
+                return None
+
+            return {"x_min": x_min, "y_min": y_min, "x_max": x_max, "y_max": y_max}
+
+        except (TypeError, ValueError) as e:
+            logger.warning(f"Failed to parse bounding box: {e}")
+            return None
 
     def _process_multi_result(
         self, result: Dict[str, Any], width: int, height: int
@@ -334,24 +418,15 @@ Only provide bounding_box if confidence > 0.4 and you can CLEARLY see the compon
             "component_visible": component_visible,
         }
 
-        # Parse bounding box if found
+        # Parse and validate bounding box if found
         bbox = result.get("bounding_box")
         if bbox and component_visible and confidence >= self.LOCALIZATION_THRESHOLD:
-            try:
-                y_min_norm = float(bbox.get("ymin", 0)) / 1000.0
-                x_min_norm = float(bbox.get("xmin", 0)) / 1000.0
-                y_max_norm = float(bbox.get("ymax", 0)) / 1000.0
-                x_max_norm = float(bbox.get("xmax", 0)) / 1000.0
-
+            pixel_coords = self._validate_and_clamp_bbox(bbox, width, height)
+            if pixel_coords:
                 entry["bounding_box"] = bbox
-                entry["pixel_coords"] = {
-                    "x_min": int(x_min_norm * width),
-                    "y_min": int(y_min_norm * height),
-                    "x_max": int(x_max_norm * width),
-                    "y_max": int(y_max_norm * height),
-                }
-            except (TypeError, ValueError) as e:
-                logger.warning(f"Failed to parse bounding box for {target}: {e}")
+                entry["pixel_coords"] = pixel_coords
+            else:
+                logger.warning(f"Bounding box validation failed for {target}, discarding bbox")
 
         return entry
 
@@ -441,21 +516,12 @@ Only provide bounding_box if confidence > 0.4 and you can CLEARLY see the compon
             and component_visible
             and confidence >= self.LOCALIZATION_THRESHOLD
         ):
-            try:
-                y_min_norm = float(bbox.get("ymin", 0)) / 1000.0
-                x_min_norm = float(bbox.get("xmin", 0)) / 1000.0
-                y_max_norm = float(bbox.get("ymax", 0)) / 1000.0
-                x_max_norm = float(bbox.get("xmax", 0)) / 1000.0
-
+            pixel_coords = self._validate_and_clamp_bbox(bbox, width, height)
+            if pixel_coords:
                 result["bounding_box"] = bbox
-                result["pixel_coords"] = {
-                    "x_min": int(x_min_norm * width),
-                    "y_min": int(y_min_norm * height),
-                    "x_max": int(x_max_norm * width),
-                    "y_max": int(y_max_norm * height),
-                }
-            except (TypeError, ValueError) as e:
-                logger.warning(f"Failed to parse bounding box: {e}")
+                result["pixel_coords"] = pixel_coords
+            else:
+                logger.warning(f"Bounding box validation failed for {component_name}, discarding bbox")
                 result["bounding_box"] = None
                 result["pixel_coords"] = None
         else:
