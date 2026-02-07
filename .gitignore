@@ -1,0 +1,32 @@
+# Python virtual environments
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# OS files
+.DS_Store
+
+# Environment/config
+.env
+.idea/
+.vscode/
+
+# Database and data
+backend/data/chroma_db/
+backend/data/manuals/
+*.sqlite3
+
+# Keep these files (do NOT ignore):
+# streamlit_app.py
+# backend/main.py
+# backend/agents/
+# backend/utils/
+# requirements.txt
+# read.md
+# test_*.py
+# models_list.txt
+# models_full.txt
