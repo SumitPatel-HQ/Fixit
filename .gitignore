@@ -20,13 +20,13 @@ backend/data/chroma_db/
 backend/data/manuals/
 *.sqlite3
 
-# Keep these files (do NOT ignore):
-# streamlit_app.py
-# backend/main.py
-# backend/agents/
-# backend/utils/
-# requirements.txt
-# read.md
-# test_*.py
-# models_list.txt
-# models_full.txt
+
+test_*.py
+models_list.txt
+models_full.txt
+FIXES_APPLIED.md
+list_models.py
+QUOTA_PROTECTION.md
+RPD_OPTIMIZATION.md
+test_new_sdk.py
+test_quota_protection.py
