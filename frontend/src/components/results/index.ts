@@ -10,3 +10,4 @@ export { LoadingProgress, LoadingSkeleton, SkeletonCard, SkeletonImage } from ".
 export { ClarifyingQuestions } from "./ClarifyingQuestions";
 export { ExplanationSection } from "./ExplanationSection";
 export { SafetyWarningOnly, InvalidImagePanel } from "./SpecialStates";
+export { SourcesList } from "./SourcesList";

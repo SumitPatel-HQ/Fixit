@@ -16,6 +16,8 @@ import {
    AlertTriangle,
    ChevronLeft,
    ChevronRight,
+   CheckSquare,
+   Square,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -267,27 +269,21 @@ export function RepairSteps({
                      >
                         <CardContent className="p-4">
                            <div className="flex items-start gap-4">
-                              {/* Step Number / Checkbox */}
+                              {/* Checkbox */}
                               <button
                                  onClick={(e) => {
                                     e.stopPropagation();
                                     handleToggleComplete(step.step);
                                  }}
                                  className={`
-                        flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center
-                        transition-all duration-300
-                        ${isCompleted
-                                       ? "bg-emerald-500/20 text-emerald-400"
-                                       : isActive
-                                          ? "bg-accent/20 text-accent border-2 border-accent/50"
-                                          : "bg-white/5 text-white/50 border border-white/20"
-                                    }
+                        flex-shrink-0 mt-1 transition-all duration-300
+                        ${isCompleted ? "text-emerald-400" : "text-white/20 hover:text-white/40"}
                       `}
                               >
                                  {isCompleted ? (
-                                    <CheckCircle2 className="w-5 h-5" />
+                                    <CheckSquare className="w-6 h-6" />
                                  ) : (
-                                    <span className="text-sm font-bold">{step.step}</span>
+                                    <Square className="w-6 h-6" />
                                  )}
                               </button>
 
@@ -295,6 +291,11 @@ export function RepairSteps({
                               <div className="flex-1 min-w-0">
                                  <div className="flex items-start justify-between gap-3">
                                     <div className="flex-1">
+                                       <div className="flex items-center gap-2 mb-1">
+                                          <span className="text-xs font-bold text-accent uppercase tracking-wider">
+                                             Step {step.step}
+                                          </span>
+                                       </div>
                                        <p
                                           className={`
                               text-white/90 leading-relaxed
@@ -432,39 +433,41 @@ export function RepairSteps({
                            <Card className="border-accent/30 bg-accent/5">
                               <CardContent className="p-5 space-y-4">
                                  {/* Step Header */}
-                                 <div className="flex items-center gap-3">
-                                    <button
-                                       onClick={() => handleToggleComplete(step.step)}
-                                       className={`
-                            flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center
-                            transition-all duration-300
-                            ${isCompleted
-                                             ? "bg-emerald-500/20 text-emerald-400"
-                                             : "bg-accent/20 text-accent border-2 border-accent/50"
-                                          }
-                          `}
-                                    >
-                                       {isCompleted ? (
-                                          <CheckCircle2 className="w-6 h-6" />
-                                       ) : (
-                                          <span className="text-lg font-bold">{step.step}</span>
-                                       )}
-                                    </button>
+                                 <div className="flex items-center justify-between">
+                                    <span className="text-sm font-bold text-accent uppercase tracking-wider">
+                                       Step {step.step}
+                                    </span>
                                     <div className="flex items-center gap-2 text-sm text-white/50">
                                        <Clock className="w-4 h-4" />
                                        {step.estimated_time}
                                     </div>
                                  </div>
 
-                                 {/* Instruction */}
-                                 <p
-                                    className={`
-                          text-lg text-white/90 leading-relaxed
-                          ${isCompleted ? "line-through text-white/50" : ""}
-                        `}
-                                 >
-                                    {step.instruction}
-                                 </p>
+                                 <div className="flex items-start gap-3">
+                                    <button
+                                       onClick={() => handleToggleComplete(step.step)}
+                                       className={`
+                                 flex-shrink-0 mt-1 transition-all duration-300
+                                 ${isCompleted ? "text-emerald-400" : "text-white/20 hover:text-white/40"}
+                               `}
+                                    >
+                                       {isCompleted ? (
+                                          <CheckSquare className="w-6 h-6" />
+                                       ) : (
+                                          <Square className="w-6 h-6" />
+                                       )}
+                                    </button>
+
+                                    {/* Instruction */}
+                                    <p
+                                       className={`
+                           text-lg text-white/90 leading-relaxed
+                           ${isCompleted ? "line-through text-white/50" : ""}
+                         `}
+                                    >
+                                       {step.instruction}
+                                    </p>
+                                 </div>
 
                                  {/* Visual Cue */}
                                  {step.visual_cue && (

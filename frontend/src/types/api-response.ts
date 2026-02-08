@@ -99,8 +99,18 @@ export interface Visualization {
 }
 
 export interface GroundingSource {
+   id: string;
+   type: "manual" | "web" | "knowledge_base" | "forum" | "video" | "pdf";
    title: string;
    url: string;
+   domain: string;
+   excerpt: string;
+   full_text?: string;
+   relevance: "high" | "medium" | "low";
+   referenced_in_steps: number[];
+   published_date?: string;
+   author?: string;
+   favicon_url?: string;
 }
 
 export interface APIResponse {

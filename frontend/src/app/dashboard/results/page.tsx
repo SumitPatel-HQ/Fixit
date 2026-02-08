@@ -24,6 +24,7 @@ import {
    ExplanationSection,
    SafetyWarningOnly,
    InvalidImagePanel,
+   SourcesList,
 } from "@/components/results";
 
 // Mock session data for development - replace with actual API call
@@ -195,8 +196,42 @@ const getMockSessionData = (sessionId: string): SessionData => ({
       audio_instructions:
          "To fix your router disconnection issues, start by power cycling the router. Unplug it for 30 seconds, then reconnect. Next, check that your internet cable is firmly connected to the blue WAN port. Then access your router settings to check for firmware updates. Finally, try changing your WiFi channel and ensure proper ventilation around the router.",
       clarifying_questions: undefined,
-      web_grounding_used: false,
-      grounding_sources: undefined,
+      web_grounding_used: true,
+      grounding_sources: [
+         {
+            id: "source-1",
+            type: "manual",
+            title: "TP-Link Archer AX6000 User Manual",
+            url: "https://www.tp-link.com/us/support/download/archer-ax6000/",
+            domain: "tp-link.com",
+            excerpt: "When the power LED is off, check the power adapter connection. If the LED is flashing green, the system is starting up. Solid red indicates no internet connection.",
+            relevance: "high",
+            referenced_in_steps: [1, 2],
+            published_date: "Jan 15, 2024",
+         },
+         {
+            id: "source-2",
+            type: "web",
+            title: "How to Troubleshoot TP-Link Router Connection Issues",
+            url: "https://community.tp-link.com/en/home/forum/topic/265432",
+            domain: "community.tp-link.com",
+            excerpt: "Many users report that changing the channel width to 40MHz stabilizes the 2.4GHz connection. Also ensure the firmware is up to date.",
+            relevance: "medium",
+            referenced_in_steps: [4],
+            published_date: "Nov 20, 2023",
+         },
+         {
+            id: "source-3",
+            type: "video",
+            title: "Fix WiFi Disconnecting Randomly - Router Settings",
+            url: "https://youtube.com/watch?v=example",
+            domain: "youtube.com",
+            excerpt: "This video guide walks through the optimal settings for AX series routers to prevent random drops, including disabling Smart Connect.",
+            relevance: "medium",
+            referenced_in_steps: [3, 4],
+            published_date: "Aug 10, 2023",
+         }
+      ] as any[], // Use any[] temporarily if TS complains about GroundingSource structure mismatch if not fully propagated
    },
 });
 
@@ -261,7 +296,19 @@ function EmptyState() {
 export default function ResultsPage() {
    const router = useRouter();
    const searchParams = useSearchParams();
+   const tabParam = searchParams.get("tab");
+   const activeTab = tabParam === "sources" ? "sources" : "steps";
    const sessionId = searchParams.get("session");
+
+   const handleTabChange = (tab: "steps" | "sources") => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (tab === "steps") {
+         params.delete("tab");
+      } else {
+         params.set("tab", "sources");
+      }
+      router.push(`?${params.toString()}`, { scroll: false });
+   };
 
    // State
    const [sessionData, setSessionData] = useState<SessionData | null>(null);
@@ -512,11 +559,32 @@ export default function ResultsPage() {
             <h1 className="text-4xl font-display font-bold text-foreground">
                Results
             </h1>
-            <p className="text-muted-foreground text-lg">
-               {response.device_info.device_type}
-               {response.device_info.brand && ` • ${response.device_info.brand}`}
-               {response.device_info.model && ` ${response.device_info.model}`}
-            </p>
+            <div className="flex items-center gap-3">
+               <p className="text-muted-foreground text-lg">
+                  {response.device_info.device_type}
+                  {response.device_info.brand && ` • ${response.device_info.brand}`}
+                  {response.device_info.model && ` ${response.device_info.model}`}
+               </p>
+               {response.device_info.confidence && (
+                  <div className={`
+                    flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-sm font-medium border
+                    ${response.device_info.confidence > 0.8
+                        ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                        : response.device_info.confidence > 0.5
+                           ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                           : "bg-red-500/10 text-red-400 border-red-500/20"
+                     }
+                  `}>
+                     <div className={`w-1.5 h-1.5 rounded-full ${response.device_info.confidence > 0.8
+                        ? "bg-emerald-400"
+                        : response.device_info.confidence > 0.5
+                           ? "bg-amber-400"
+                           : "bg-red-400"
+                        }`} />
+                     {Math.round(response.device_info.confidence * 100)}%
+                  </div>
+               )}
+            </div>
          </div>
 
          {/* Status Banner */}
@@ -537,9 +605,9 @@ export default function ResultsPage() {
                className="space-y-8"
             >
                {/* Two Column Layout on Desktop */}
-               <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
+               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                   {/* Left Column - AR Image Canvas */}
-                  <div className="lg:col-span-2" id="ar-canvas">
+                  <div className="" id="ar-canvas">
                      <ARImageCanvas
                         imageUrl={sessionData.imageUrl}
                         visualizations={response.visualizations}
@@ -549,7 +617,7 @@ export default function ResultsPage() {
                   </div>
 
                   {/* Right Column - Info Panels */}
-                  <div className="lg:col-span-3 space-y-6">
+                  <div className="space-y-6">
                      {/* Success Info */}
                      <SuccessInfoPanel
                         answerType={answer_type}
@@ -572,48 +640,125 @@ export default function ResultsPage() {
                   </div>
                </div>
 
-               {/* Repair Steps - Full Width */}
-               {response.troubleshooting_steps && response.troubleshooting_steps.length > 0 && (
-                  <RepairSteps
-                     steps={response.troubleshooting_steps}
-                     answerType={answer_type}
-                     audioInstructions={response.audio_instructions}
-                     onStepComplete={handleStepComplete}
-                     onComponentHighlight={handleComponentHighlight}
-                  />
-               )}
+               {/* Tab Navigation & Content Area */}
+               <div className="space-y-6">
+                  {/* Tabs */}
+                  <div className="border-b border-border/40">
+                     <div className="flex items-center gap-8">
+                        <button
+                           onClick={() => handleTabChange("steps")}
+                           className={`pb-4 text-base font-medium transition-all relative ${activeTab === "steps"
+                                 ? "text-accent"
+                                 : "text-muted-foreground hover:text-foreground"
+                              }`}
+                        >
+                           Repair Steps
+                           {activeTab === "steps" && (
+                              <motion.div
+                                 layoutId="activeTab"
+                                 className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent"
+                              />
+                           )}
+                        </button>
 
-               {/* Explanation Section */}
-               {response.explanation && (
-                  <ExplanationSection explanation={response.explanation} />
-               )}
-
-               {/* Grounding Sources */}
-               {response.web_grounding_used && response.grounding_sources && (
-                  <motion.div
-                     initial={{ opacity: 0, y: 20 }}
-                     animate={{ opacity: 1, y: 0 }}
-                     transition={{ delay: 0.4 }}
-                     className="p-4 rounded-xl bg-secondary/30 border border-border/50"
-                  >
-                     <h4 className="text-sm font-medium text-white/70 mb-3">
-                        Sources Referenced:
-                     </h4>
-                     <div className="flex flex-wrap gap-2">
-                        {response.grounding_sources.map((source, i) => (
-                           <a
-                              key={i}
-                              href={source.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 text-sm text-accent hover:text-accent/80 transition-colors"
-                           >
-                              {source.title}
-                           </a>
-                        ))}
+                        <button
+                           onClick={() => handleTabChange("sources")}
+                           className={`pb-4 text-base font-medium transition-all relative ${activeTab === "sources"
+                                 ? "text-accent"
+                                 : "text-muted-foreground hover:text-foreground"
+                              }`}
+                        >
+                           Sources
+                           {response.grounding_sources && response.grounding_sources.length > 0 && (
+                              <span className="ml-2 px-1.5 py-0.5 rounded-full bg-accent/10 text-xs font-semibold">
+                                 {response.grounding_sources.length}
+                              </span>
+                           )}
+                           {activeTab === "sources" && (
+                              <motion.div
+                                 layoutId="activeTab"
+                                 className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent"
+                              />
+                           )}
+                        </button>
                      </div>
-                  </motion.div>
-               )}
+                  </div>
+
+                  {/* Tab Content */}
+                  <div className="min-h-[400px]">
+                     <AnimatePresence mode="wait">
+                        {activeTab === "steps" ? (
+                           <motion.div
+                              key="steps"
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -10 }}
+                              transition={{ duration: 0.2 }}
+                           >
+                              {response.troubleshooting_steps && response.troubleshooting_steps.length > 0 ? (
+                                 <RepairSteps
+                                    steps={response.troubleshooting_steps}
+                                    answerType={answer_type}
+                                    audioInstructions={response.audio_instructions}
+                                    onStepComplete={handleStepComplete}
+                                    onComponentHighlight={handleComponentHighlight}
+                                 />
+                              ) : (
+                                 <div className="text-center py-12 text-muted-foreground">
+                                    No repair steps available.
+                                 </div>
+                              )}
+                           </motion.div>
+                        ) : (
+                           <motion.div
+                              key="sources"
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -10 }}
+                              transition={{ duration: 0.2 }}
+                           >
+                              {response.grounding_sources ? (
+                                 <SourcesList
+                                    sources={response.grounding_sources}
+                                    onReferenceClick={(step) => {
+                                       handleTabChange("steps");
+                                       // Scroll to steps area if needed, or implement highlight logic
+                                    }}
+                                 />
+                              ) : (
+                                 /* Empty State for Sources */
+                                 <div className="flex flex-col items-center justify-center py-16 text-center space-y-4 bg-secondary/10 rounded-xl border border-white/5">
+                                    <div className="w-12 h-12 rounded-full bg-secondary/30 flex items-center justify-center text-muted-foreground">
+                                       <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                                       </svg>
+                                    </div>
+                                    <div className="space-y-1">
+                                       <h3 className="text-lg font-medium text-white">Sources Currently Unavailable</h3>
+                                       <p className="text-muted-foreground max-w-md mx-auto">
+                                          We couldn't retrieve external sources at this time. The repair steps use general knowledge for this device type.
+                                       </p>
+                                    </div>
+                                    <div className="pt-2 flex flex-col items-center gap-2 text-sm text-accent">
+                                       <span>For your specific model, please consult:</span>
+                                       <div className="flex gap-4">
+                                          <span className="flex items-center gap-1">
+                                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                             Manufacturer Documentation
+                                          </span>
+                                          <span className="flex items-center gap-1">
+                                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" /></svg>
+                                             Device Support Page
+                                          </span>
+                                       </div>
+                                    </div>
+                                 </div>
+                              )}
+                           </motion.div>
+                        )}
+                     </AnimatePresence>
+                  </div>
+               </div>
             </motion.div>
          </AnimatePresence>
 

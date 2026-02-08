@@ -62,7 +62,7 @@ function DashboardLayoutContent({
                "inset-y-0 left-0 top-3 bottom-3 w-80 bg-[#0c0c0c] border-r border-white/10 p-6 shadow-2xl rounded-4xl",
                isMobileMenuOpen ? "translate-x-0" : "-translate-x-full",
                // Desktop Styles
-               "md:translate-x-0 md:fixed md:left-4 md:top-4 md:bottom-4 md:w-66 md:bg-[#0c0c0c]/60 md:backdrop-blur-2xl md:border md:border-white/[0.05] md:rounded-[2rem] md:shadow-black/50"
+               "md:translate-x-0 md:fixed md:left-4 md:top-4 md:bottom-4 md:w-full md:max-w-2xs md:bg-[#0c0c0c]/60 md:backdrop-blur-2xl md:border md:border-white/[0.05] md:rounded-[2rem] md:shadow-black/50"
             )}
          >
             {/* Logo Section */}

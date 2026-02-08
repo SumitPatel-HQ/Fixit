@@ -243,10 +243,18 @@ export function ARImageCanvas({
                ref={containerRef}
                className={`
             relative overflow-hidden rounded-xl border border-border bg-black/40
-            ${isFullscreen ? "fixed inset-0 z-50 rounded-none" : "aspect-video"}
+            ${isFullscreen ? "fixed inset-0 z-50 rounded-none" : "w-full"}
             ${zoom > 1 ? "cursor-grab" : "cursor-default"}
             ${isDragging ? "cursor-grabbing" : ""}
           `}
+               style={{
+                  aspectRatio: isFullscreen
+                     ? undefined
+                     : imageDimensions.width && imageDimensions.height
+                        ? `${imageDimensions.width} / ${imageDimensions.height}`
+                        : "16 / 9",
+                  maxHeight: isFullscreen ? "100vh" : "80vh"
+               }}
                onMouseDown={handleMouseDown}
                onMouseMove={handleMouseMove}
                onMouseUp={handleMouseUp}
@@ -299,8 +307,9 @@ export function ARImageCanvas({
                                  animate={{ opacity: 1, scale: 1 }}
                                  transition={{ delay: index * 0.1 }}
                                  className={`
-                        absolute border-2 rounded-sm cursor-pointer
-                        transition-all duration-200 hover:border-white
+                        absolute border-2 rounded-lg cursor-pointer
+                        transition-all duration-300
+                        hover:border-4 hover:border-white hover:shadow-[0_0_20px_rgba(255,255,255,0.5)] hover:z-10
                         ${colors.border.replace("stroke-", "border-")}
                         ${colors.bg}
                       `}
@@ -311,8 +320,8 @@ export function ARImageCanvas({
                                  {showLabels && (
                                     <div
                                        className={`
-                            absolute -top-6 left-0 px-2 py-0.5 rounded text-xs font-medium
-                            whitespace-nowrap backdrop-blur-sm
+                            absolute -top-8 left-0 px-3 py-1 rounded-full text-xs font-bold tracking-wide
+                            whitespace-nowrap backdrop-blur-md shadow-lg border border-white/20
                             ${colors.bg} ${colors.text}
                           `}
                                     >
@@ -323,7 +332,7 @@ export function ARImageCanvas({
                                  {/* Confidence indicator */}
                                  <div
                                     className={`
-                          absolute -bottom-5 left-0 text-[10px] font-mono
+                          absolute -bottom-6 left-0 text-[10px] font-mono font-bold px-1 py-0.5 rounded bg-black/50 backdrop-blur-sm
                           ${colors.text}
                         `}
                                  >
@@ -382,7 +391,7 @@ export function ARImageCanvas({
                      initial={{ opacity: 0 }}
                      animate={{ opacity: 1 }}
                      exit={{ opacity: 0 }}
-                     className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50"
+                     className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
                      onClick={() => setSelectedComponent(null)}
                   />
 
@@ -391,23 +400,24 @@ export function ARImageCanvas({
                      initial={{ x: "100%" }}
                      animate={{ x: 0 }}
                      exit={{ x: "100%" }}
-                     transition={{ type: "spring", damping: 25, stiffness: 300 }}
-                     className="fixed top-0 right-0 bottom-0 w-full max-w-md z-50 bg-secondary border-l border-border overflow-y-auto"
+                     transition={{ type: "spring", damping: 30, stiffness: 300 }}
+                     className="fixed rounded-4xl top-3 right-0 bottom-3 w-full max-w-md z-50 bg-[#0c0c0c] border-l border-white/10 shadow-2xl overflow-y-auto"
                   >
-                     <div className="p-6 space-y-6">
+                     <div className="p-8 space-y-8">
                         {/* Header */}
                         <div className="flex items-start justify-between">
-                           <div>
-                              <h2 className="text-xl font-bold text-white">
+                           <div className="space-y-2">
+                              <h2 className="text-2xl font-display font-bold text-white">
                                  {"label" in selectedComponent
                                     ? selectedComponent.label
                                     : selectedComponent.target}
                               </h2>
                               <div
                                  className={`
-                        inline-flex items-center gap-1.5 mt-2 px-2.5 py-1 rounded-full text-sm font-medium
+                        inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-semibold border
                         ${STATUS_COLORS[getStatusFromComponent(selectedComponent)].bg}
                         ${STATUS_COLORS[getStatusFromComponent(selectedComponent)].text}
+                        ${STATUS_COLORS[getStatusFromComponent(selectedComponent)].border.replace("stroke-", "border-")}
                       `}
                               >
                                  {getStatusFromComponent(selectedComponent) === "found" && "✓ Found"}
@@ -420,82 +430,94 @@ export function ARImageCanvas({
                               variant="ghost"
                               size="icon"
                               onClick={() => setSelectedComponent(null)}
+                              className="text-white/50 hover:text-white"
                            >
-                              <X className="w-5 h-5" />
+                              <X className="w-6 h-6" />
                            </Button>
                         </div>
 
-                        {/* Details */}
-                        <div className="space-y-4">
-                           {"landmark_description" in selectedComponent && selectedComponent.landmark_description && (
-                              <div>
-                                 <h4 className="text-sm font-medium text-white/70 mb-1">Location</h4>
-                                 <p className="text-white/90">{selectedComponent.landmark_description}</p>
-                              </div>
-                           )}
+                        {/* Details Grid */}
+                        <div className="space-y-6">
+                           {/* Location & Landmark Section */}
+                           <div className="grid gap-6 p-5 rounded-2xl bg-white/5 border border-white/10">
+                              {"spatial_description" in selectedComponent && selectedComponent.spatial_description && (
+                                 <div>
+                                    <h4 className="text-xs uppercase tracking-widest font-bold text-white/40 mb-2">Location</h4>
+                                    <div className="flex items-start gap-2 text-white/90">
+                                       <div className="p-1 rounded bg-white/10 mt-0.5">
+                                          <Maximize2 className="w-3 h-3" />
+                                       </div>
+                                       {selectedComponent.spatial_description}
+                                    </div>
+                                 </div>
+                              )}
 
-                           {"spatial_description" in selectedComponent && selectedComponent.spatial_description && (
-                              <div>
-                                 <h4 className="text-sm font-medium text-white/70 mb-1">Spatial Description</h4>
-                                 <p className="text-white/90">{selectedComponent.spatial_description}</p>
-                              </div>
-                           )}
+                              {"landmark_description" in selectedComponent && selectedComponent.landmark_description && (
+                                 <div>
+                                    <h4 className="text-xs uppercase tracking-widest font-bold text-white/40 mb-2">Landmark</h4>
+                                    <div className="flex items-start gap-2 text-white/90">
+                                       <div className="p-1 rounded bg-white/10 mt-0.5">
+                                          <Tag className="w-3 h-3" />
+                                       </div>
+                                       {selectedComponent.landmark_description}
+                                    </div>
+                                 </div>
+                              )}
+                           </div>
 
+                           {/* Analysis / Reasoning */}
                            {"reasoning" in selectedComponent && selectedComponent.reasoning && (
                               <div>
-                                 <h4 className="text-sm font-medium text-white/70 mb-1">Analysis</h4>
-                                 <p className="text-white/90">{selectedComponent.reasoning}</p>
+                                 <h4 className="text-sm font-semibold text-white/70 mb-2">Analysis</h4>
+                                 <p className="text-white/80 leading-relaxed text-sm">{selectedComponent.reasoning}</p>
                               </div>
                            )}
 
+                           {/* Suggested Action - Highlighted */}
                            {"suggested_action" in selectedComponent && selectedComponent.suggested_action && (
-                              <div>
-                                 <h4 className="text-sm font-medium text-white/70 mb-1">Suggested Action</h4>
-                                 <div className="flex items-start gap-2 p-3 rounded-lg bg-accent/10 border border-accent/20">
-                                    <ChevronRight className="w-4 h-4 text-accent mt-0.5 flex-shrink-0" />
-                                    <p className="text-accent">{selectedComponent.suggested_action}</p>
-                                 </div>
+                              <div className="bg-accent/10 border border-accent/20 rounded-xl p-5">
+                                 <h4 className="text-sm font-bold text-accent mb-2 flex items-center gap-2">
+                                    <ChevronRight className="w-4 h-4" />
+                                    Suggested Action
+                                 </h4>
+                                 <p className="text-accent/90 pl-6">{selectedComponent.suggested_action}</p>
                               </div>
                            )}
 
-                           {"ambiguity_note" in selectedComponent && selectedComponent.ambiguity_note && (
-                              <div>
-                                 <h4 className="text-sm font-medium text-amber-400 mb-1">⚠ Note</h4>
-                                 <p className="text-amber-200/80">{selectedComponent.ambiguity_note}</p>
-                              </div>
-                           )}
-
+                           {/* Confidence Bar */}
                            {"confidence" in selectedComponent && (
                               <div>
-                                 <h4 className="text-sm font-medium text-white/70 mb-2">Confidence</h4>
+                                 <h4 className="text-xs uppercase tracking-widest font-bold text-white/40 mb-2">AI Confidence</h4>
                                  <div className="relative h-2 bg-white/10 rounded-full overflow-hidden">
                                     <motion.div
                                        initial={{ width: 0 }}
                                        animate={{ width: `${selectedComponent.confidence * 100}%` }}
-                                       transition={{ duration: 0.5 }}
+                                       transition={{ duration: 1, ease: "easeOut" }}
                                        className={`absolute h-full rounded-full ${selectedComponent.confidence >= 0.8
-                                             ? "bg-emerald-500"
-                                             : selectedComponent.confidence >= 0.5
-                                                ? "bg-amber-500"
-                                                : "bg-red-500"
+                                          ? "bg-emerald-500"
+                                          : selectedComponent.confidence >= 0.5
+                                             ? "bg-amber-500"
+                                             : "bg-red-500"
                                           }`}
                                     />
                                  </div>
-                                 <p className="text-sm text-white/60 mt-1">
-                                    {Math.round(selectedComponent.confidence * 100)}% confidence
+                                 <p className="text-xs text-right text-white/40 mt-1.5 font-mono">
+                                    {Math.round(selectedComponent.confidence * 100)}% Match
                                  </p>
                               </div>
                            )}
                         </div>
 
-                        {/* Close Button */}
-                        <Button
-                           variant="secondary"
-                           className="w-full"
-                           onClick={() => setSelectedComponent(null)}
-                        >
-                           Close Details
-                        </Button>
+                        {/* Bottom Actions */}
+                        <div className="pt-4 mt-auto">
+                           <Button
+                              variant="outline"
+                              className="w-full h-12 text-base font-medium border-white/10 hover:bg-white/5"
+                              onClick={() => setSelectedComponent(null)}
+                           >
+                              Close Details
+                           </Button>
+                        </div>
                      </div>
                   </motion.div>
                </>

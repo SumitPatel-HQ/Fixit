@@ -16,33 +16,43 @@ const SEVERITY_CONFIG: Record<
    { bg: string; border: string; text: string; icon: React.ReactNode; label: string }
 > = {
    low: {
-      bg: "bg-blue-500/10",
-      border: "border-blue-500/30",
-      text: "text-blue-400",
+      bg: "bg-emerald-500/20",
+      border: "border-emerald-500/30",
+      text: "text-emerald-300",
       icon: <Info className="w-4 h-4" />,
       label: "Low Priority",
    },
    medium: {
-      bg: "bg-amber-500/10",
-      border: "border-amber-500/30",
-      text: "text-amber-400",
+      bg: "bg-yellow-500/20",
+      border: "border-yellow-500/30",
+      text: "text-yellow-300",
       icon: <AlertCircle className="w-4 h-4" />,
       label: "Medium Priority",
    },
    high: {
-      bg: "bg-orange-500/10",
+      bg: "bg-orange-500/20",
       border: "border-orange-500/30",
-      text: "text-orange-400",
+      text: "text-orange-300",
       icon: <AlertTriangle className="w-4 h-4" />,
       label: "High Priority",
    },
    critical: {
-      bg: "bg-red-500/10",
+      bg: "bg-red-500/20",
       border: "border-red-500/30",
-      text: "text-red-400",
+      text: "text-red-300",
       icon: <Flame className="w-4 h-4" />,
       label: "Critical",
    },
+};
+
+const getIndicatorIcon = (text: string) => {
+   const lower = text.toLowerCase();
+   if (lower.includes("wifi") || lower.includes("disconnect") || lower.includes("signal")) return "📉";
+   if (lower.includes("heat") || lower.includes("hot") || lower.includes("temp")) return "🌡️";
+   if (lower.includes("sound") || lower.includes("noise") || lower.includes("beep")) return "🔊";
+   if (lower.includes("light") || lower.includes("led") || lower.includes("blink")) return "💡";
+   if (lower.includes("slow") || lower.includes("lag") || lower.includes("speed")) return "🐢";
+   return "🔎";
 };
 
 export function DiagnosisPanel({
@@ -153,8 +163,8 @@ export function DiagnosisPanel({
                   </CardTitle>
                   <div
                      className={`
-                inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium
-                ${severityConfig.bg} ${severityConfig.text}
+                inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium border
+                ${severityConfig.bg} ${severityConfig.text} ${severityConfig.border}
               `}
                   >
                      {severityConfig.icon}
@@ -231,8 +241,9 @@ export function DiagnosisPanel({
                               initial={{ opacity: 0, scale: 0.9 }}
                               animate={{ opacity: 1, scale: 1 }}
                               transition={{ delay: 0.05 * index }}
-                              className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-sm text-white/70"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-sm text-white/70 hover:bg-white/10 transition-colors"
                            >
+                              <span>{getIndicatorIcon(indicator)}</span>
                               {indicator}
                            </motion.span>
                         ))}
