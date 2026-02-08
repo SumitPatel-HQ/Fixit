@@ -1,43 +1,628 @@
-export default function ResultsPage() {
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+   SessionData,
+   APIResponse,
+   LoadingStage,
+   Visualization,
+   LocalizationResult,
+} from "@/types/api-response";
+import {
+   StatusBanner,
+   ARImageCanvas,
+   DiagnosisPanel,
+   RepairSteps,
+   ComponentsDetected,
+   FollowUpInput,
+   SuccessInfoPanel,
+   LoadingProgress,
+   LoadingSkeleton,
+   ClarifyingQuestions,
+   ExplanationSection,
+   SafetyWarningOnly,
+   InvalidImagePanel,
+} from "@/components/results";
+
+// Mock session data for development - replace with actual API call
+const getMockSessionData = (sessionId: string): SessionData => ({
+   sessionId,
+   imageUrl: "https://images.unsplash.com/photo-1518770660439-4636190af475?w=800&q=80",
+   originalQuery: "My router keeps disconnecting. Can you identify the issue?",
+   timestamp: new Date().toISOString(),
+   response: {
+      answer_type: "troubleshoot_steps",
+      needs_clarification: false,
+      cannot_comply_reason: null,
+      device_info: {
+         device_category: "Networking",
+         device_type: "Wireless Router",
+         brand: "TP-Link",
+         model: "Archer AX6000",
+         brand_model_guidance: "High-end WiFi 6 router with dual-band support",
+         confidence: 0.92,
+      },
+      localization_results: [
+         {
+            target: "WAN Port",
+            status: "found",
+            bounding_box: { x_min: 0.1, y_min: 0.6, x_max: 0.2, y_max: 0.8 },
+            spatial_description: "Left side, bottom section",
+            landmark_description: "Near the power connector",
+            reasoning: "Identified by blue coloring typical of WAN ports",
+            suggested_action: "Check if cable is firmly connected",
+            confidence: 0.95,
+            disambiguation_needed: false,
+         },
+         {
+            target: "Power LED",
+            status: "found",
+            bounding_box: { x_min: 0.4, y_min: 0.1, x_max: 0.5, y_max: 0.2 },
+            spatial_description: "Front panel, center",
+            landmark_description: "Front indicator LED strip",
+            reasoning: "Green LED visible in power-on state",
+            suggested_action: "Verify LED is solid green",
+            confidence: 0.88,
+            disambiguation_needed: false,
+         },
+         {
+            target: "Reset Button",
+            status: "not_visible",
+            bounding_box: null,
+            spatial_description: "Usually on the back or bottom",
+            landmark_description: "Recessed pinhole button",
+            reasoning: "Not visible from this angle",
+            suggested_action: "Check the back panel for a small pinhole",
+            confidence: 0.6,
+            disambiguation_needed: false,
+         },
+         {
+            target: "WiFi Antenna",
+            status: "found",
+            bounding_box: { x_min: 0.7, y_min: 0.2, x_max: 0.9, y_max: 0.7 },
+            spatial_description: "Right side, external antennas",
+            landmark_description: "Dual external antennas",
+            reasoning: "External antennas clearly visible",
+            suggested_action: "Ensure antennas are positioned properly",
+            confidence: 0.98,
+            disambiguation_needed: false,
+         },
+      ],
+      diagnosis: {
+         issue:
+            "Intermittent disconnections may be caused by channel interference, firmware issues, or overheating. The router appears to be functioning but may need configuration adjustments.",
+         severity: "medium",
+         safety_warning: null,
+         possible_causes: [
+            "WiFi channel congestion from nearby networks",
+            "Outdated firmware version",
+            "Router overheating due to poor ventilation",
+            "ISP connection instability",
+         ],
+         indicators: [
+            "Frequent disconnections",
+            "Slow speeds during peak hours",
+            "Need to reboot often",
+         ],
+      },
+      troubleshooting_steps: [
+         {
+            step: 1,
+            instruction:
+               "Power cycle your router by unplugging it for 30 seconds, then reconnecting the power.",
+            visual_cue: "Wait for all LEDs to stabilize to solid green/blue",
+            estimated_time: "2 minutes",
+            overlay_reference: "power_led",
+            safety_note: undefined,
+         },
+         {
+            step: 2,
+            instruction:
+               "Check that the WAN cable (internet) is firmly connected to the blue WAN port.",
+            visual_cue: "Look for a click when inserting the ethernet cable",
+            estimated_time: "30 seconds",
+            overlay_reference: "wan_port",
+            safety_note: undefined,
+         },
+         {
+            step: 3,
+            instruction:
+               "Access router settings at 192.168.0.1 and check for firmware updates.",
+            visual_cue: "Look for 'Firmware Update' or 'System Update' in settings",
+            estimated_time: "5 minutes",
+            overlay_reference: null,
+            safety_note: "Do not power off during firmware update",
+         },
+         {
+            step: 4,
+            instruction:
+               "Change WiFi channel to a less congested one (try channels 1, 6, or 11 for 2.4GHz).",
+            visual_cue: "Find 'Wireless Settings' > 'Channel' in router admin",
+            estimated_time: "3 minutes",
+            overlay_reference: null,
+            safety_note: undefined,
+         },
+         {
+            step: 5,
+            instruction:
+               "Ensure router has adequate ventilation - move away from walls and other electronics.",
+            visual_cue: "Router should have at least 6 inches clearance on all sides",
+            estimated_time: "1 minute",
+            overlay_reference: null,
+            safety_note: undefined,
+         },
+      ],
+      visualizations: [
+         {
+            target: "WAN Port",
+            bounding_box: { x_min: 0.1, y_min: 0.6, x_max: 0.2, y_max: 0.8 },
+            arrow_hint: null,
+            label: "WAN Port",
+            landmark_description: "Blue ethernet port for internet connection",
+            confidence: 0.95,
+            overlay_id: "wan_port",
+            disambiguation_needed: false,
+            ambiguity_note: null,
+         },
+         {
+            target: "Power LED",
+            bounding_box: { x_min: 0.4, y_min: 0.1, x_max: 0.5, y_max: 0.2 },
+            arrow_hint: null,
+            label: "Power LED",
+            landmark_description: "Status indicator on front panel",
+            confidence: 0.88,
+            overlay_id: "power_led",
+            disambiguation_needed: false,
+            ambiguity_note: null,
+         },
+         {
+            target: "WiFi Antenna",
+            bounding_box: { x_min: 0.7, y_min: 0.2, x_max: 0.9, y_max: 0.7 },
+            arrow_hint: {
+               from: { x: 0.65, y: 0.3 },
+               to: { x: 0.75, y: 0.35 },
+            },
+            label: "WiFi Antenna",
+            landmark_description: "External dual-band antennas",
+            confidence: 0.98,
+            overlay_id: "wifi_antenna",
+            disambiguation_needed: false,
+            ambiguity_note: null,
+         },
+      ],
+      audio_instructions:
+         "To fix your router disconnection issues, start by power cycling the router. Unplug it for 30 seconds, then reconnect. Next, check that your internet cable is firmly connected to the blue WAN port. Then access your router settings to check for firmware updates. Finally, try changing your WiFi channel and ensure proper ventilation around the router.",
+      clarifying_questions: undefined,
+      web_grounding_used: false,
+      grounding_sources: undefined,
+   },
+});
+
+// Empty state component when no session data
+function EmptyState() {
+   const router = useRouter();
+
    return (
-      <div className="space-y-6">
+      <motion.div
+         initial={{ opacity: 0, y: 20 }}
+         animate={{ opacity: 1, y: 0 }}
+         className="flex items-center justify-center min-h-[500px]"
+      >
+         <div className="text-center space-y-6 max-w-md mx-auto">
+            <div className="w-20 h-20 rounded-2xl bg-accent/10 flex items-center justify-center mx-auto">
+               <svg
+                  className="w-10 h-10 text-accent"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+               >
+                  <path
+                     strokeLinecap="round"
+                     strokeLinejoin="round"
+                     strokeWidth={1.5}
+                     d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  />
+               </svg>
+            </div>
+            <div className="space-y-2">
+               <h2 className="text-2xl font-display font-bold text-white">
+                  No Analysis Results
+               </h2>
+               <p className="text-muted-foreground">
+                  Submit an image and query from the Input Hub to see diagnostic results here.
+               </p>
+            </div>
+            <button
+               onClick={() => router.push("/dashboard")}
+               className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-accent text-white font-medium hover:bg-accent/90 transition-colors"
+            >
+               <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+               >
+                  <path
+                     strokeLinecap="round"
+                     strokeLinejoin="round"
+                     strokeWidth={2}
+                     d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
+                  />
+               </svg>
+               Go to Input Hub
+            </button>
+         </div>
+      </motion.div>
+   );
+}
+
+export default function ResultsPage() {
+   const router = useRouter();
+   const searchParams = useSearchParams();
+   const sessionId = searchParams.get("session");
+
+   // State
+   const [sessionData, setSessionData] = useState<SessionData | null>(null);
+   const [loadingStage, setLoadingStage] = useState<LoadingStage>("device_recognition");
+   const [isLoading, setIsLoading] = useState(false);
+   const [isSubmittingFollowUp, setIsSubmittingFollowUp] = useState(false);
+   const [error, setError] = useState<string | null>(null);
+   const [highlightedComponent, setHighlightedComponent] = useState<string | null>(null);
+
+   // Load session data when sessionId is present
+   useEffect(() => {
+      if (!sessionId) {
+         setSessionData(null);
+         setIsLoading(false);
+         return;
+      }
+
+      const loadData = async () => {
+         setIsLoading(true);
+         setError(null);
+
+         try {
+            // Stage 1: Device Recognition
+            setLoadingStage("device_recognition");
+            await new Promise((r) => setTimeout(r, 600));
+
+            // Stage 2: Visual Analysis
+            setLoadingStage("visual_analysis");
+            await new Promise((r) => setTimeout(r, 600));
+
+            // Stage 3: Diagnosis
+            setLoadingStage("diagnosis");
+            await new Promise((r) => setTimeout(r, 500));
+
+            // Stage 4: Action Steps
+            setLoadingStage("action_steps");
+            await new Promise((r) => setTimeout(r, 400));
+
+            // Load mock data (replace with actual API call)
+            // const response = await fetch(`/api/results/${sessionId}`);
+            // const data = await response.json();
+            const data = getMockSessionData(sessionId);
+            setSessionData(data);
+
+            // Complete
+            setLoadingStage("complete");
+            setIsLoading(false);
+         } catch (err) {
+            setError("Failed to load results. Please try again.");
+            setIsLoading(false);
+         }
+      };
+
+      loadData();
+   }, [sessionId]);
+
+   // Handle follow-up query submission
+   const handleFollowUpSubmit = async (query: string) => {
+      setIsSubmittingFollowUp(true);
+      try {
+         // TODO: Implement actual API call
+         // const response = await fetch('/api/troubleshoot', {
+         //   method: 'POST',
+         //   body: JSON.stringify({ query, sessionId, imageUrl: sessionData?.imageUrl })
+         // });
+
+         // Simulate API delay
+         await new Promise((r) => setTimeout(r, 2000));
+
+         console.log("Follow-up query:", query);
+         // Handle response and update session data
+      } catch (err) {
+         console.error("Follow-up submission failed:", err);
+      } finally {
+         setIsSubmittingFollowUp(false);
+      }
+   };
+
+   // Handle clarifying question selection
+   const handleClarifyingSubmit = async (selectedOption: string) => {
+      setIsSubmittingFollowUp(true);
+      try {
+         console.log("Selected option:", selectedOption);
+         await new Promise((r) => setTimeout(r, 2000));
+      } catch (err) {
+         console.error("Clarifying submission failed:", err);
+      } finally {
+         setIsSubmittingFollowUp(false);
+      }
+   };
+
+   // Handle retry/upload new actions
+   const handleRetry = () => {
+      if (sessionId) {
+         setSessionData(null);
+         setIsLoading(true);
+         // Re-trigger load
+         window.location.reload();
+      }
+   };
+
+   const handleUploadNew = () => {
+      router.push("/dashboard");
+   };
+
+   // Handle component highlighting
+   const handleComponentClick = useCallback(
+      (component: Visualization | LocalizationResult) => {
+         const id = "overlay_id" in component ? component.overlay_id : component.target;
+         setHighlightedComponent(id);
+      },
+      []
+   );
+
+   const handleStepComplete = useCallback((stepNumber: number) => {
+      console.log(`Step ${stepNumber} completed`);
+   }, []);
+
+   const handleComponentHighlight = useCallback((overlayRef: string) => {
+      setHighlightedComponent(overlayRef);
+      // Scroll to image if needed
+      document.getElementById("ar-canvas")?.scrollIntoView({ behavior: "smooth" });
+   }, []);
+
+   // No session - show empty state
+   if (!sessionId && !isLoading && !sessionData) {
+      return (
+         <div className="space-y-6">
+            <div className="space-y-2">
+               <h1 className="text-4xl font-display font-bold text-foreground">
+                  Results
+               </h1>
+               <p className="text-muted-foreground text-lg">
+                  View diagnostic results and repair recommendations
+               </p>
+            </div>
+            <EmptyState />
+         </div>
+      );
+   }
+
+   // Loading state
+   if (isLoading) {
+      return (
+         <div className="space-y-6">
+            <LoadingProgress stage={loadingStage} />
+            <div className="space-y-2">
+               <h1 className="text-4xl font-display font-bold text-foreground">
+                  Results
+               </h1>
+               <p className="text-muted-foreground text-lg">
+                  Analyzing your device...
+               </p>
+            </div>
+            <LoadingSkeleton />
+         </div>
+      );
+   }
+
+   // Error state
+   if (error || !sessionData) {
+      return (
+         <div className="space-y-6">
+            <div className="space-y-2">
+               <h1 className="text-4xl font-display font-bold text-foreground">
+                  Results
+               </h1>
+               <p className="text-muted-foreground text-lg">
+                  {error || "Results not found"}
+               </p>
+            </div>
+            <div className="flex justify-center pt-8">
+               <button
+                  onClick={handleUploadNew}
+                  className="text-accent hover:underline"
+               >
+                  Go back to Input Hub
+               </button>
+            </div>
+         </div>
+      );
+   }
+
+   const { response } = sessionData;
+   const { answer_type, cannot_comply_reason } = response;
+
+   // Render special states
+   if (answer_type === "safety_warning_only" && response.diagnosis?.safety_warning) {
+      return (
+         <div className="space-y-6">
+            <LoadingProgress stage="complete" isComplete />
+            <div className="space-y-2">
+               <h1 className="text-4xl font-display font-bold text-foreground">
+                  Results
+               </h1>
+            </div>
+            <SafetyWarningOnly
+               safetyMessage={response.diagnosis.safety_warning}
+               onContactProfessional={() => { }}
+            />
+         </div>
+      );
+   }
+
+   if (answer_type === "reject_invalid_image" || answer_type === "ask_for_better_input") {
+      return (
+         <div className="space-y-6">
+            <LoadingProgress stage="complete" isComplete />
+            <div className="space-y-2">
+               <h1 className="text-4xl font-display font-bold text-foreground">
+                  Results
+               </h1>
+            </div>
+            <InvalidImagePanel
+               reason={cannot_comply_reason}
+               explanation={response.diagnosis?.issue}
+               onRetry={handleRetry}
+               onUploadNew={handleUploadNew}
+            />
+         </div>
+      );
+   }
+
+   if (answer_type === "ask_clarifying_questions" && response.clarifying_questions) {
+      return (
+         <div className="space-y-6">
+            <LoadingProgress stage="complete" isComplete />
+            <div className="space-y-2">
+               <h1 className="text-4xl font-display font-bold text-foreground">
+                  Results
+               </h1>
+            </div>
+            <ClarifyingQuestions
+               questions={response.clarifying_questions}
+               mainMessage="Your question covers multiple topics. Which would you like help with first?"
+               onSubmit={handleClarifyingSubmit}
+               isLoading={isSubmittingFollowUp}
+            />
+         </div>
+      );
+   }
+
+   // Main results view
+   return (
+      <div className="space-y-6 pb-32">
          {/* Page Header */}
          <div className="space-y-2">
             <h1 className="text-4xl font-display font-bold text-foreground">
                Results
             </h1>
             <p className="text-muted-foreground text-lg">
-               View diagnostic results and repair recommendations
+               {response.device_info.device_type}
+               {response.device_info.brand && ` • ${response.device_info.brand}`}
+               {response.device_info.model && ` ${response.device_info.model}`}
             </p>
          </div>
 
-         {/* Main Content Area - Placeholder */}
-         <div className="bg-secondary/50 backdrop-blur-sm border border-border rounded-2xl p-12 min-h-[600px] flex items-center justify-center">
-            <div className="text-center space-y-4">
-               <div className="w-16 h-16 rounded-2xl bg-accent/20 flex items-center justify-center mx-auto">
-                  <svg
-                     className="w-8 h-8 text-accent"
-                     fill="none"
-                     stroke="currentColor"
-                     viewBox="0 0 24 24"
-                  >
-                     <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+         {/* Status Banner */}
+         <StatusBanner
+            answerType={answer_type}
+            deviceInfo={response.device_info}
+            cannotComplyReason={cannot_comply_reason}
+            onRetry={handleRetry}
+            onUploadNew={handleUploadNew}
+         />
+
+         {/* Main Content */}
+         <AnimatePresence mode="wait">
+            <motion.div
+               key="results"
+               initial={{ opacity: 0 }}
+               animate={{ opacity: 1 }}
+               className="space-y-8"
+            >
+               {/* Two Column Layout on Desktop */}
+               <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
+                  {/* Left Column - AR Image Canvas */}
+                  <div className="lg:col-span-2" id="ar-canvas">
+                     <ARImageCanvas
+                        imageUrl={sessionData.imageUrl}
+                        visualizations={response.visualizations}
+                        localizationResults={response.localization_results}
+                        onComponentClick={handleComponentClick}
                      />
-                  </svg>
+                  </div>
+
+                  {/* Right Column - Info Panels */}
+                  <div className="lg:col-span-3 space-y-6">
+                     {/* Success Info */}
+                     <SuccessInfoPanel
+                        answerType={answer_type}
+                        deviceInfo={response.device_info}
+                        localizationResults={response.localization_results}
+                     />
+
+                     {/* Diagnosis */}
+                     <DiagnosisPanel
+                        diagnosis={response.diagnosis}
+                        cannotComplyReason={cannot_comply_reason}
+                     />
+
+                     {/* Components Detected */}
+                     <ComponentsDetected
+                        components={response.localization_results}
+                        onComponentClick={(c) => handleComponentClick(c)}
+                        onHighlightInImage={(c) => handleComponentHighlight(c.target)}
+                     />
+                  </div>
                </div>
-               <h3 className="text-xl font-display font-semibold text-foreground">
-                  Results Content
-               </h3>
-               <p className="text-muted-foreground max-w-md">
-                  Content will be added here - Display diagnostic results, AI
-                  analysis, and repair suggestions
-               </p>
-            </div>
-         </div>
+
+               {/* Repair Steps - Full Width */}
+               {response.troubleshooting_steps && response.troubleshooting_steps.length > 0 && (
+                  <RepairSteps
+                     steps={response.troubleshooting_steps}
+                     answerType={answer_type}
+                     audioInstructions={response.audio_instructions}
+                     onStepComplete={handleStepComplete}
+                     onComponentHighlight={handleComponentHighlight}
+                  />
+               )}
+
+               {/* Explanation Section */}
+               {response.explanation && (
+                  <ExplanationSection explanation={response.explanation} />
+               )}
+
+               {/* Grounding Sources */}
+               {response.web_grounding_used && response.grounding_sources && (
+                  <motion.div
+                     initial={{ opacity: 0, y: 20 }}
+                     animate={{ opacity: 1, y: 0 }}
+                     transition={{ delay: 0.4 }}
+                     className="p-4 rounded-xl bg-secondary/30 border border-border/50"
+                  >
+                     <h4 className="text-sm font-medium text-white/70 mb-3">
+                        Sources Referenced:
+                     </h4>
+                     <div className="flex flex-wrap gap-2">
+                        {response.grounding_sources.map((source, i) => (
+                           <a
+                              key={i}
+                              href={source.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 text-sm text-accent hover:text-accent/80 transition-colors"
+                           >
+                              {source.title}
+                           </a>
+                        ))}
+                     </div>
+                  </motion.div>
+               )}
+            </motion.div>
+         </AnimatePresence>
+
+         {/* Follow-up Input - Sticky Bottom */}
+         <FollowUpInput
+            sessionId={sessionId || ""}
+            isLoading={isSubmittingFollowUp}
+            onSubmit={handleFollowUpSubmit}
+         />
       </div>
    );
 }

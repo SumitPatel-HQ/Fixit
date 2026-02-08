@@ -167,7 +167,7 @@ export function VoiceInput({ onTranscript, currentText }: VoiceInputProps) {
    }, [isRecording, startRecording, stopRecording]);
 
    return (
-      <div className="space-y-6">
+      <div className="space-y-6 w-full">
          {/* Microphone Button */}
          <div className="flex flex-col items-center gap-4">
             <button
@@ -177,7 +177,7 @@ export function VoiceInput({ onTranscript, currentText }: VoiceInputProps) {
             relative w-24 h-24 rounded-full transition-all duration-300
             ${isRecording
                      ? 'bg-red-500 hover:bg-red-600 scale-110'
-                     : 'bg-accent hover:bg-accent/90'
+                     : 'bg-muted hover:bg-primary/10'
                   }
             ${isProcessing ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
             disabled:opacity-50 disabled:cursor-not-allowed
@@ -243,7 +243,7 @@ export function VoiceInput({ onTranscript, currentText }: VoiceInputProps) {
                         className="w-1 bg-accent rounded-full transition-all duration-100"
                         style={{
                            height: `${20 + Math.random() * audioLevel * 60}%`,
-                           opacity: 0.3 + audioLevel * 0.7
+                           opacity: 0.5 + audioLevel * 0.7
                         }}
                      />
                   ))}
@@ -251,13 +251,15 @@ export function VoiceInput({ onTranscript, currentText }: VoiceInputProps) {
             )}
          </div>
 
-         {/* Transcribed Text Display */}
-         {currentText && (
-            <div className="p-4 bg-secondary/30 border border-border rounded-xl">
-               <p className="text-sm text-muted-foreground mb-2">Transcribed text:</p>
-               <p className="text-foreground">{currentText}</p>
-            </div>
-         )}
+         {/* Editable Text Area */}
+         <div className="w-full">
+            <textarea
+               value={currentText}
+               onChange={(e) => onTranscript(e.target.value)}
+               placeholder="Start speaking or type here..."
+               className="w-full min-h-5 p-4 bg-secondary/30 border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-accent/50 resize-none transition-all"
+            />
+         </div>
 
          {/* Error Message */}
          {error && (
@@ -270,13 +272,13 @@ export function VoiceInput({ onTranscript, currentText }: VoiceInputProps) {
          )}
 
          {/* Browser Support Note */}
-         {!recognitionRef.current && (
+         {/* {!recognitionRef.current && (
             <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl">
                <p className="text-sm text-yellow-400">
                   Voice input requires Chrome, Edge, or Safari browser.
                </p>
             </div>
-         )}
+         )} */}
       </div>
    );
 }

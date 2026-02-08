@@ -135,10 +135,10 @@ export default function InputHubPage() {
          const data = await response.json();
 
          // Navigate to results page
-         router.push(`/results/${data.sessionId}`);
+         router.push(`/dashboard/results?session=${data.sessionId}`);
       } catch (error) {
          console.error('Submission error:', error);
-         alert('Failed to submit request. Please try again.');
+         setErrors({ ...errors, query: 'Failed to submit request. Please try again.' });
       } finally {
          setIsSubmitting(false);
       }
@@ -156,177 +156,190 @@ export default function InputHubPage() {
             </p>
          </div>
 
-         {/* Visual Input Section */}
-         <div className="bg-secondary/50 backdrop-blur-sm border border-border rounded-2xl p-6 space-y-4">
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-               <h2 className="text-xl font-display font-semibold text-foreground">
-                  Upload Device Image or Video
-               </h2>
-
-               {/* Mode Toggle */}
-               <div className="flex gap-2 p-1 bg-secondary rounded-lg self-start md:self-auto">
-                  <button
-                     onClick={() => {
-                        setInputMode('camera');
-                        setShowCamera(true);
-                     }}
-                     className={`
-                px-4 py-2 rounded-md text-sm font-medium transition-all
-                ${inputMode === 'camera' && showCamera
-                           ? 'bg-accent text-white shadow-lg'
-                           : 'text-muted-foreground hover:text-foreground'
-                        }
-              `}
-                  >
-                     📸 Capture Live
-                  </button>
-                  <button
-                     onClick={() => {
-                        setInputMode('upload');
-                        setShowCamera(false);
-                     }}
-                     className={`
-                px-4 py-2 rounded-md text-sm font-medium transition-all
-                ${inputMode === 'upload' && !showCamera
-                           ? 'bg-accent text-white shadow-lg'
-                           : 'text-muted-foreground hover:text-foreground'
-                        }
-              `}
-                  >
-                     📁 Upload File
-                  </button>
-               </div>
-            </div>
-
-            {/* Camera or Upload Component */}
-            {showCamera ? (
-               <CameraCapture
-                  onCapture={handleCameraCapture}
-                  onCancel={() => {
-                     setShowCamera(false);
-                     setInputMode('upload');
-                  }}
-               />
-            ) : (
-               <FileUpload
-                  onFileSelect={handleFileSelect}
-                  selectedFile={selectedFile}
-                  onRemove={handleFileRemove}
-               />
-            )}
-
-            {/* Error Message */}
-            {errors.image && (
-               <p className="text-sm text-red-400 flex items-center gap-2">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  {errors.image}
-               </p>
-            )}
-         </div>
-
-         {/* Query Input Section */}
-         <div className="bg-secondary/50 backdrop-blur-sm border border-border rounded-2xl p-6 space-y-4">
-            <h2 className="text-xl font-display font-semibold text-foreground">
-               What's the issue?
-            </h2>
-
-            {/* Query Mode Tabs */}
-            <div className="flex gap-2 border-b border-border">
-               <button
-                  onClick={() => setQueryMode('voice')}
-                  className={`
-              px-4 py-2 font-medium transition-all relative
-              ${queryMode === 'voice'
-                        ? 'text-accent'
-                        : 'text-muted-foreground hover:text-foreground'
-                     }
-            `}
-               >
-                  Voice Input
-                  {queryMode === 'voice' && (
-                     <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent" />
-                  )}
-               </button>
-               <button
-                  onClick={() => setQueryMode('text')}
-                  className={`
-              px-4 py-2 font-medium transition-all relative
-              ${queryMode === 'text'
-                        ? 'text-accent'
-                        : 'text-muted-foreground hover:text-foreground'
-                     }
-            `}
-               >
-                  Text Input
-                  {queryMode === 'text' && (
-                     <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent" />
-                  )}
-               </button>
-            </div>
-
-            {/* Query Input Content */}
-            {queryMode === 'voice' ? (
-               <VoiceInput onTranscript={handleVoiceTranscript} currentText={queryText} />
-            ) : (
-               <div className="space-y-4">
-                  <textarea
-                     value={queryText}
-                     onChange={(e) => {
-                        setQueryText(e.target.value);
-                        setErrors({ ...errors, query: undefined });
-                     }}
-                     placeholder="Describe the problem or ask a question..."
-                     className="w-full min-h-[120px] p-4 bg-secondary/30 border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent resize-none"
-                     maxLength={500}
-                  />
-
-                  {/* Character Counter */}
-                  <div className="flex justify-between items-center">
-                     <p className="text-xs text-muted-foreground">
-                        {queryText.length} / 500 characters
-                     </p>
-                  </div>
-
-                  {/* Example Queries */}
-                  <div className="space-y-2">
-                     <p className="text-sm text-muted-foreground">Quick examples:</p>
-                     <div className="flex flex-wrap gap-2">
-                        {EXAMPLE_QUERIES.map((example) => (
-                           <button
-                              key={example}
-                              onClick={() => handleExampleClick(example)}
-                              className="px-3 py-1.5 bg-secondary/50 border border-border rounded-full text-sm text-foreground hover:bg-accent hover:text-white hover:border-accent transition-all"
-                           >
-                              {example}
-                           </button>
-                        ))}
+         {/* Grid for Inputs */}
+         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Visual Input Section */}
+            <div className="bg-secondary/20 backdrop-blur-sm border border-border/50 rounded-2xl p-6 flex flex-col">
+               <div className="flex flex-col gap-4 mb-6">
+                  <div className="flex items-center justify-between">
+                     <h2 className="text-xl font-display font-semibold text-foreground">
+                        Upload Device Image
+                     </h2>
+                     {/* Mode Toggle */}
+                     <div className="flex gap-1 p-1 bg-secondary/50 rounded-lg">
+                        <button
+                           onClick={() => {
+                              setInputMode('camera');
+                              setShowCamera(true);
+                           }}
+                           className={`
+                              px-4 py-2 rounded-md text-sm font-medium transition-all
+                              ${inputMode === 'camera' && showCamera
+                                 ? 'text-primary bg-primary/10 shadow-lg shadow-primary/5 border border-primary/10'
+                                 : 'text-muted-foreground hover:text-primary hover:bg-primary/10'
+                              }
+                           `}
+                        >
+                           📸 Capture Live
+                        </button>
+                        <button
+                           onClick={() => {
+                              setInputMode('upload');
+                              setShowCamera(false);
+                           }}
+                           className={`
+                              px-4 py-2 rounded-md text-sm font-medium transition-all
+                              ${inputMode === 'upload' && !showCamera
+                                 ? 'text-primary bg-primary/10 shadow-lg shadow-primary/5 border border-primary/10'
+                                 : 'text-muted-foreground hover:text-primary hover:bg-primary/10'
+                              }
+                           `}
+                        >
+                           📁 Upload File
+                        </button>
                      </div>
                   </div>
                </div>
-            )}
 
-            {/* Error Message */}
-            {errors.query && (
-               <p className="text-sm text-red-400 flex items-center gap-2">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  {errors.query}
-               </p>
-            )}
+               <div className="flex-1 min-h-[300px] flex flex-col justify-center">
+                  {/* Camera or Upload Component */}
+                  {showCamera ? (
+                     <CameraCapture
+                        onCapture={handleCameraCapture}
+                        onCancel={() => {
+                           setShowCamera(false);
+                           setInputMode('upload');
+                        }}
+                     />
+                  ) : (
+                     <FileUpload
+                        onFileSelect={handleFileSelect}
+                        selectedFile={selectedFile}
+                        onRemove={handleFileRemove}
+                     />
+                  )}
+               </div>
+
+               {/* Error Message */}
+               {errors.image && (
+                  <p className="mt-4 text-sm text-red-400 flex items-center gap-2">
+                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                     </svg>
+                     {errors.image}
+                  </p>
+               )}
+            </div>
+
+            {/* Query Input Section */}
+            <div className="bg-secondary/20 backdrop-blur-sm border border-border/50 rounded-2xl p-6 flex flex-col">
+               <div className="flex items-center justify-between mb-2">
+                  <h2 className="text-xl font-display font-semibold text-foreground">
+                     What's the issue?
+                  </h2>
+               </div>
+
+               {/* Query Mode Tabs - Restored Original Style */}
+               <div className="flex gap-2 border-b border-border mb-6">
+                  <button
+                     onClick={() => setQueryMode('voice')}
+                     className={`
+                        px-4 py-2 font-medium transition-all relative text-sm
+                        ${queryMode === 'voice'
+                           ? 'text-primary'
+                           : 'text-muted-foreground hover:text-primary'
+                        }
+                     `}
+                  >
+                     Voice Input
+                     {queryMode === 'voice' && (
+                        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary/70" />
+                     )}
+                  </button>
+                  <button
+                     onClick={() => setQueryMode('text')}
+                     className={`
+                        px-4 py-2 font-medium transition-all relative text-sm
+                        ${queryMode === 'text'
+                           ? 'text-primary '
+                           : 'text-muted-foreground hover:text-primary'
+                        }
+                     `}
+                  >
+                     Text Input
+                     {queryMode === 'text' && (
+                        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary/70 rounded-full" />
+                     )}
+                  </button>
+               </div>
+
+               <div className="flex-1 flex flex-col h-full">
+                  {/* Query Input Content */}
+                  {queryMode === 'voice' ? (
+                     <div className="flex-1 flex items-center justify-center">
+                        <VoiceInput onTranscript={handleVoiceTranscript} currentText={queryText} />
+                     </div>
+                  ) : (
+                     <div className="space-y-4 flex-1 flex flex-col">
+                        <textarea
+                           value={queryText}
+                           onChange={(e) => {
+                              setQueryText(e.target.value);
+                              setErrors({ ...errors, query: undefined });
+                           }}
+                           placeholder="Describe the problem or ask a question..."
+                           className="flex-1 w-full min-h-10 p-4 bg-secondary/30 border border-border/50 rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-accent/50 resize-none transition-all"
+                           maxLength={500}
+                        />
+
+
+
+                        {/* Example Queries */}
+                        <div className="space-y-3 mt-auto">
+                           <p className="text-xs text-muted-foreground font-medium uppercase tracking-widest">Suggestions</p>
+                           <div className="flex flex-wrap gap-2">
+                              {EXAMPLE_QUERIES.map((example) => (
+                                 <button
+                                    key={example}
+                                    onClick={() => handleExampleClick(example)}
+                                    className="px-3 py-1.5 bg-secondary/40 border border-border/40 rounded-lg text-sm text-foreground hover:bg-accent/10 hover:border-accent/40 transition-all text-left"
+                                 >
+                                    {example}
+                                 </button>
+                              ))}
+                           </div>
+                        </div>
+                     </div>
+                  )}
+               </div>
+
+               {/* Error Message */}
+               {errors.query && (
+                  <p className="mt-4 text-sm text-red-400 flex items-center gap-2">
+                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                     </svg>
+                     {errors.query}
+                  </p>
+               )}
+            </div>
          </div>
 
+
          {/* Optional Device Hint Section */}
-         <div className="bg-secondary/50 backdrop-blur-sm border border-border rounded-2xl overflow-hidden">
+         <div className="bg-secondary/10 backdrop-blur-sm border border-border/40 rounded-xl overflow-hidden">
             <button
                onClick={() => setShowDeviceHint(!showDeviceHint)}
-               className="w-full px-6 py-4 flex items-center justify-between hover:bg-secondary/30 transition-colors"
+               className="w-full px-6 py-3 flex items-center justify-between hover:bg-secondary/20 transition-colors"
             >
-               <span className="font-medium text-foreground">Advanced Options</span>
+               <div className="flex items-center gap-2">
+                  <svg className="w-4 h-4 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                  </svg>
+                  <span className="text-sm font-medium text-foreground">Advanced Options (Optional)</span>
+               </div>
                <svg
-                  className={`w-5 h-5 text-muted-foreground transition-transform ${showDeviceHint ? 'rotate-180' : ''
+                  className={`w-4 h-4 text-muted-foreground transition-transform ${showDeviceHint ? 'rotate-180' : ''
                      }`}
                   fill="none"
                   stroke="currentColor"
@@ -337,21 +350,17 @@ export default function InputHubPage() {
             </button>
 
             {showDeviceHint && (
-               <div className="px-6 pb-6 space-y-4">
-                  <p className="text-sm text-muted-foreground">
-                     Providing device details improves accuracy
-                  </p>
-
+               <div className="px-6 pb-6 pt-2 space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                      {/* Device Type */}
-                     <div className="space-y-2">
-                        <label className="text-sm font-medium text-foreground">
+                     <div className="space-y-1.5">
+                        <label className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">
                            Device Type
                         </label>
                         <select
                            value={deviceHint.type}
                            onChange={(e) => setDeviceHint({ ...deviceHint, type: e.target.value })}
-                           className="w-full px-4 py-2 bg-secondary/30 border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-accent"
+                           className="w-full px-3 py-2 bg-secondary/30 border border-border/50 rounded-lg text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-accent/50"
                         >
                            <option value="">Select type</option>
                            {DEVICE_TYPES.map((type) => (
@@ -363,30 +372,30 @@ export default function InputHubPage() {
                      </div>
 
                      {/* Brand */}
-                     <div className="space-y-2">
-                        <label className="text-sm font-medium text-foreground">
-                           Brand (Optional)
+                     <div className="space-y-1.5">
+                        <label className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">
+                           Brand
                         </label>
                         <input
                            type="text"
                            value={deviceHint.brand}
                            onChange={(e) => setDeviceHint({ ...deviceHint, brand: e.target.value })}
-                           placeholder="e.g., HP, Dell, Cisco"
-                           className="w-full px-4 py-2 bg-secondary/30 border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent"
+                           placeholder="e.g., HP, Cisco"
+                           className="w-full px-3 py-2 bg-secondary/30 border border-border/50 rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-accent/50"
                         />
                      </div>
 
                      {/* Model */}
-                     <div className="space-y-2">
-                        <label className="text-sm font-medium text-foreground">
-                           Model (Optional)
+                     <div className="space-y-1.5">
+                        <label className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">
+                           Model
                         </label>
                         <input
                            type="text"
                            value={deviceHint.model}
                            onChange={(e) => setDeviceHint({ ...deviceHint, model: e.target.value })}
-                           placeholder="e.g., XPS 15, RT-AC68U"
-                           className="w-full px-4 py-2 bg-secondary/30 border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent"
+                           placeholder="e.g., XPS 15"
+                           className="w-full px-3 py-2 bg-secondary/30 border border-border/50 rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-accent/50"
                         />
                      </div>
                   </div>
@@ -394,7 +403,7 @@ export default function InputHubPage() {
             )}
          </div>
 
-         {/* Submit Button - Fixed on Mobile */}
+         {/* Submit Button */}
          <div className={cn(
             "fixed bottom-6 left-6 right-6 z-50 md:static md:p-0 md:m-0",
             isMobileMenuOpen ? "hidden md:block" : "block"
@@ -403,7 +412,7 @@ export default function InputHubPage() {
                onClick={handleSubmit}
                disabled={isSubmitting || !selectedFile || !queryText.trim()}
                size="lg"
-               className="w-full h-14 text-base font-semibold rounded-full shadow-2xl shadow-primary/20 transition-all active:scale-95 disabled:opacity-90"
+               className="w-full h-14 text-base font-semibold rounded-full text-primary bg-primary/10 shadow-lg shadow-primary/5 border border-primary/10 transition-all  active:scale-95 disabled:bg-[#111111] disabled:text-muted-foreground cursor-pointer disabled:shadow-none disabled:opacity-90 hover:text-primary hover:bg-primary/10 "
             >
                {isSubmitting ? (
                   <>
@@ -425,6 +434,8 @@ export default function InputHubPage() {
                )}
             </Button>
          </div>
+
       </div>
    );
 }
+

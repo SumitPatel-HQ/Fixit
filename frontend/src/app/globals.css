@@ -22,7 +22,7 @@
   --background: #0a0a0a;
   --foreground: #fafafa;
 
-  --primary: #ffffff;
+  --primary: #e2e8f0;
   --primary-foreground: #0a0a0a;
 
   --secondary: #1a1a1a;
@@ -65,5 +65,18 @@
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+
+  /* Hide scrollbar for Chrome, Safari and Opera */
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Hide scrollbar for IE, Edge and Firefox */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    /* IE and Edge */
+    scrollbar-width: none;
+    /* Firefox */
   }
 }

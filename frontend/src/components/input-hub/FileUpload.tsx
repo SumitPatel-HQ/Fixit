@@ -132,19 +132,19 @@ export function FileUpload({ onFileSelect, selectedFile, onRemove }: FileUploadP
    }
 
    return (
-      <div className="space-y-4">
+      <div className="flex-1 flex flex-col h-full">
          {/* Drop Zone */}
          <div
             onDrop={handleDrop}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             className={`
-          relative border-2 border-dashed rounded-xl p-12 text-center transition-all cursor-pointer
-          ${isDragging
-                  ? 'border-accent bg-accent/5 scale-[1.02]'
-                  : 'border-border hover:border-accent/50 hover:bg-secondary/30'
+               relative border border-dashed rounded-2xl p-8 text-center transition-all cursor-pointer flex-1 flex flex-col justify-center items-center
+               ${isDragging
+                  ? 'border-accent bg-accent/5'
+                  : 'border-border/60 hover:border-accent/50 hover:bg-secondary/20'
                }
-        `}
+            `}
          >
             <input
                type="file"
@@ -154,12 +154,12 @@ export function FileUpload({ onFileSelect, selectedFile, onRemove }: FileUploadP
                aria-label="Upload file"
             />
 
-            <div className="space-y-4 pointer-events-none">
+            <div className="space-y-3 pointer-events-none">
                {/* Upload Icon */}
-               <div className={`w-16 h-16 rounded-2xl mx-auto flex items-center justify-center transition-colors ${isDragging ? 'bg-accent/20' : 'bg-secondary/50'
+               <div className={`w-12 h-12 rounded-xl mx-auto flex items-center justify-center transition-colors ${isDragging ? 'bg-accent/20' : 'bg-secondary/40'
                   }`}>
                   <svg
-                     className={`w-8 h-8 transition-colors ${isDragging ? 'text-accent' : 'text-muted-foreground'}`}
+                     className={`w-6 h-6 transition-colors ${isDragging ? 'text-accent' : 'text-muted-foreground'}`}
                      fill="none"
                      stroke="currentColor"
                      viewBox="0 0 24 24"
@@ -170,35 +170,16 @@ export function FileUpload({ onFileSelect, selectedFile, onRemove }: FileUploadP
 
                {/* Upload Text */}
                <div>
-                  <p className="text-lg font-medium text-foreground mb-1">
-                     {isDragging ? 'Drop your file here' : 'Drag and drop your file here'}
+                  <p className="font-medium text-foreground">
+                     {isDragging ? 'Drop it here' : 'Click or drag image here'}
                   </p>
-                  <p className="text-sm text-muted-foreground">
-                     or click to browse
+                  <p className="text-xs text-muted-foreground mt-1">
+                     Supports JPG, PNG, MP4 (Max 200MB)
                   </p>
                </div>
-
-               {/* Accepted Formats */}
-               <div className="flex flex-wrap gap-2 justify-center">
-                  <span className="px-3 py-1 bg-secondary/50 border border-border rounded-full text-xs text-muted-foreground">
-                     JPG
-                  </span>
-                  <span className="px-3 py-1 bg-secondary/50 border border-border rounded-full text-xs text-muted-foreground">
-                     PNG
-                  </span>
-                  <span className="px-3 py-1 bg-secondary/50 border border-border rounded-full text-xs text-muted-foreground">
-                     MP4
-                  </span>
-                  <span className="px-3 py-1 bg-secondary/50 border border-border rounded-full text-xs text-muted-foreground">
-                     MOV
-                  </span>
-               </div>
-
-               <p className="text-xs text-muted-foreground">
-                  Maximum file size: 200MB
-               </p>
             </div>
          </div>
+
 
          {/* Error Message */}
          {error && (

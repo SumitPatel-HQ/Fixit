@@ -18,32 +18,83 @@ export function CameraCapture({ onCapture, onCancel }: CameraCaptureProps) {
    const [error, setError] = useState<string | null>(null);
    const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
 
-   const startCamera = useCallback(async () => {
-      try {
-         setError(null);
-         const stream = await navigator.mediaDevices.getUserMedia({
-            video: {
-               facingMode,
-               width: { ideal: 1280 },
-               height: { ideal: 720 }
-            }
-         });
+   // Multi-call lock to prevent parallel initialization (fixes NotReadableError in Strict Mode)
+   const startingRef = useRef(false);
 
+   const startCamera = useCallback(async (retryCount = 0) => {
+      // Don't start if we're already trying or already streaming
+      if (startingRef.current) return;
+
+      try {
+         startingRef.current = true;
+         setError(null);
+
+         // Helper to try getting stream with fallback
+         const getStream = async () => {
+            // Try HD with specific facing mode first
+            try {
+               return await navigator.mediaDevices.getUserMedia({
+                  video: {
+                     facingMode,
+                     width: { ideal: 1280 },
+                     height: { ideal: 720 }
+                  }
+               });
+            } catch (e) {
+               console.warn('Constraint-based access failed, retrying generic video...', e);
+               // Fallback: Just get any video stream
+               return await navigator.mediaDevices.getUserMedia({ video: true });
+            }
+         };
+
+         const stream = await getStream();
+
+         // Check if we're still mounted and have a video ref
          if (videoRef.current) {
             videoRef.current.srcObject = stream;
             streamRef.current = stream;
             setIsStreaming(true);
+            startingRef.current = false; // Successfully started
+         } else {
+            // Clean up immediately if component unmounted mid-stream initialization
+            stream.getTracks().forEach(track => track.stop());
+            startingRef.current = false;
          }
-      } catch (err) {
+      } catch (err: any) {
+         startingRef.current = false; // Release lock even on failure
          console.error('Camera access error:', err);
-         setError('Camera access denied. Please enable camera permissions in your browser settings.');
+
+         // Retry logic: Wait longer if hardware is still locked
+         if ((err?.name === 'NotReadableError' || err?.message?.includes('Could not start video source')) && retryCount < 2) {
+            console.log(`Resource busy, retrying in 1.5s... (Attempt ${retryCount + 1})`);
+            await new Promise(resolve => setTimeout(resolve, 1500));
+            return startCamera(retryCount + 1);
+         }
+
+         let message = 'Camera access denied. Please enable camera permissions.';
+         if (err?.name === 'NotReadableError' || err?.message?.includes('Could not start video source')) {
+            message = 'Camera is busy. Please close other camera apps and refresh.';
+         } else if (err?.name === 'NotAllowedError') {
+            message = 'Camera permission was blocked.';
+         } else if (err?.name === 'NotFoundError') {
+            message = 'No camera found on this device.';
+         }
+
+         setError(message);
       }
    }, [facingMode]);
 
    const stopCamera = useCallback(() => {
+      startingRef.current = false;
       if (streamRef.current) {
-         streamRef.current.getTracks().forEach(track => track.stop());
+         streamRef.current.getTracks().forEach(track => {
+            track.stop();
+            console.log('Camera track stopped');
+         });
          streamRef.current = null;
+      }
+      if (videoRef.current) {
+         videoRef.current.srcObject = null;
       }
       setIsStreaming(false);
    }, []);
@@ -90,10 +141,18 @@ export function CameraCapture({ onCapture, onCancel }: CameraCaptureProps) {
       setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
    }, [stopCamera]);
 
-   // Start camera on mount
+   // Improved mount effect with strictly managed cleanup
    useEffect(() => {
-      startCamera();
-      return () => stopCamera();
+      let isActive = true;
+      const initialWait = setTimeout(() => {
+         if (isActive) startCamera();
+      }, 300);
+
+      return () => {
+         isActive = false;
+         clearTimeout(initialWait);
+         stopCamera();
+      };
    }, [startCamera, stopCamera]);
 
    if (error) {
@@ -106,7 +165,7 @@ export function CameraCapture({ onCapture, onCancel }: CameraCaptureProps) {
                <p className="text-red-400 font-medium">{error}</p>
             </div>
             <div className="flex gap-3">
-               <Button onClick={startCamera} variant="outline" className="flex-1">
+               <Button onClick={() => startCamera(0)} variant="outline" className="flex-1">
                   Try Again
                </Button>
                <Button onClick={onCancel} variant="secondary" className="flex-1">
