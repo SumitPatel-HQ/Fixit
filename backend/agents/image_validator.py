@@ -32,7 +32,8 @@ class ImageValidator:
     """
     
     # Confidence threshold for accepting the image classification
-    CLASSIFICATION_CONFIDENCE_THRESHOLD = 0.6
+    # Lowered to 0.4 to be more lenient with valid device images
+    CLASSIFICATION_CONFIDENCE_THRESHOLD = 0.4
     
     # Valid categories that can proceed to troubleshooting
     VALID_CATEGORIES = ["device", "electronic_component", "circuit_board", "appliance"]

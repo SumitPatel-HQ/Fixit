@@ -60,9 +60,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Confidence thresholds
-HIGH_CONFIDENCE_THRESHOLD = 0.6
-MEDIUM_CONFIDENCE_THRESHOLD = 0.3
+# Confidence thresholds - lowered to be more lenient
+HIGH_CONFIDENCE_THRESHOLD = 0.5  # Previously 0.6
+MEDIUM_CONFIDENCE_THRESHOLD = 0.25  # Previously 0.3
 
 # Safety keywords that force safety_warning_only (CRITICAL level only)
 CRITICAL_SAFETY_KEYWORDS = [
@@ -153,8 +153,18 @@ async def troubleshoot(
         try:
             image = process_image_for_gemini(image_base64)
             current_width, current_height = image.size
-            if not image_width or not image_height:
-                image_width, image_height = current_width, current_height
+            
+            # CRITICAL FIX: Always use the ACTUAL processed image dimensions
+            # The backend may resize images (max 1024px), so bounding boxes must be
+            # calculated based on the resized dimensions that Gemini actually sees
+            # If frontend sent different dimensions, log the mismatch for debugging
+            if image_width and image_height:
+                if (image_width != current_width) or (image_height != current_height):
+                    logger.info(f"📐 Image was resized: {image_width}x{image_height} → {current_width}x{current_height}")
+            
+            # Always use current (post-resize) dimensions for accurate bounding boxes
+            image_width, image_height = current_width, current_height
+            
         except Exception as e:
             logger.error(f"Image processing failed: {e}")
             raise HTTPException(status_code=400, detail=f"Invalid image: {str(e)}")
@@ -222,11 +232,19 @@ async def troubleshoot(
 
         # ===========================================
         # DECISION GATE: Image Quality
+        # Only reject truly unusable images - be more lenient
         # ===========================================
         image_quality = validation_info.get("image_quality", "good")
-        if image_quality in ("blurry", "dark", "too_far"):
-            logger.info(f"GATE 1b: Image quality issue: {image_quality}")
+        device_confidence = device_info.get("device_confidence", 0.0)
+        
+        # Only trigger better input request if:
+        # 1. Image quality is poor AND device confidence is very low (< 0.3)
+        # 2. This prevents false rejections of acceptable images
+        if image_quality in ("blurry", "dark", "too_far") and device_confidence < 0.3:
+            logger.info(f"GATE 1b: Image quality issue: {image_quality} with low device confidence: {device_confidence}")
             query_info["answer_type"] = "ask_for_better_input"
+        elif image_quality in ("blurry", "dark", "too_far"):
+            logger.info(f"GATE 1b: Image quality flagged as {image_quality}, but device confidence is {device_confidence} - proceeding with analysis")
 
         # ===========================================
         # DECISION GATE: Safety Override

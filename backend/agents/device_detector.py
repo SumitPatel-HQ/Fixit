@@ -37,10 +37,10 @@ class DeviceDetector:
     Key principle: Be honest about uncertainty rather than guessing.
     """
     
-    # Confidence thresholds
-    HIGH_CONFIDENCE_THRESHOLD = 0.6   # Proceed with full pipeline
-    MEDIUM_CONFIDENCE_THRESHOLD = 0.3  # Limited help with caveats
-    # Below 0.3 = Early exit, ask for clarification
+    # Confidence thresholds - lowered to be more permissive
+    HIGH_CONFIDENCE_THRESHOLD = 0.5   # Proceed with full pipeline (was 0.6)
+    MEDIUM_CONFIDENCE_THRESHOLD = 0.25  # Limited help with caveats (was 0.3)
+    # Below 0.25 = Early exit, ask for clarification
     
     # Device categories we can help with
     KNOWN_DEVICE_CATEGORIES = [

@@ -89,7 +89,8 @@ class SpatialMapper:
     """
 
     # Minimum confidence to provide bounding box (lowered to be more permissive)
-    LOCALIZATION_THRESHOLD = 0.4
+    # This ensures more components get AR bounding boxes even with moderate confidence
+    LOCALIZATION_THRESHOLD = 0.3
 
     def __init__(self):
         pass
@@ -381,8 +382,9 @@ STAGE 3 - PRECISE LOCATION (only if Stage 2 passes):
   {{"x_min": 50, "y_min": 40, "x_max": {width // 4}, "y_max": {height // 4}}}
   These are actual pixel positions, NOT percentages or 0-1000 scaled values.
 - Make boxes slightly LARGER rather than smaller - better to include extra space than miss the component
-- Minimum box size: at least 50x50 pixels
-- Only if confidence >= 0.6
+- Minimum box size: at least 0.03 x 0.03 (3% x 3% of image dimensions)
+- Only provide bounding box if confidence >= 0.3 and component is visible
+- For any component you can see (even partially), ALWAYS try to provide a bounding box
 
 IMPORTANT BOUNDING BOX RULES:
 - The bounding box will be drawn on the image for the user to see.

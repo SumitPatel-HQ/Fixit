@@ -161,7 +161,13 @@ Perform FIVE analyses in one response:
 1. IMAGE VALIDATION & QUALITY
    - Is this a physical electronic device? (yes or no)
    - What do you see in the image?
-   - Image quality assessment: is it blurry, too dark, or too far away?
+   - Image quality assessment: Evaluate if the image has sufficient clarity for analysis
+     * Set to "good" if components are identifiable (even if slightly blurry/dimly lit)
+     * Set to "blurry" ONLY if the entire image is severely out of focus and NO components are identifiable
+     * Set to "dark" ONLY if the image is so dark that you cannot identify ANY components or device type
+     * Set to "too_far" ONLY if the device occupies less than 10% of the frame and no details are visible
+     * Set to "partial" if less than 30% of the device is visible
+     * DEFAULT: If you can identify the device type and see components, set to "good"
    - Are there MULTIPLE devices visible? If so, list them.
    - If not a valid device (game screenshot, UI, person, food, artwork), provide rejection reason
 
