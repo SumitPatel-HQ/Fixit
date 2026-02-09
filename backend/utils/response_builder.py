@@ -91,8 +91,10 @@ def build_enhanced_response(
     response["section_title"] = ANSWER_TYPE_TITLES.get(answer_type, "Analysis Results")
 
     # --- Localization Results ---
-    if answer_type in ("locate_only", "troubleshoot_steps", "mixed"):
-        response["localization_results"] = localization_results or []
+    # Include localization results whenever components were detected, regardless of answer type
+    # This allows AR visualization even for explain_only queries
+    if localization_results and len(localization_results) > 0:
+        response["localization_results"] = localization_results
     else:
         response["localization_results"] = None
 
@@ -132,9 +134,16 @@ def build_enhanced_response(
         response["clarifying_questions"] = None
 
     # --- Visualizations ---
-    response["visualizations"] = _build_visualizations(
-        localization_results, image_dims
-    )
+    # Build visualizations whenever we have localization data
+    # This enables AR overlay for all answer types that detected components
+    if localization_results and len(localization_results) > 0:
+        response["visualizations"] = _build_visualizations(
+            localization_results, image_dims
+        )
+        logger.info(f"📤 Sending {len(response['visualizations'])} visualizations in response")
+    else:
+        response["visualizations"] = None
+        logger.info("📤 No visualizations to send")
 
     # --- Audio instructions placeholder (filled by audio_generator) ---
     response["audio_instructions"] = ""
@@ -346,31 +355,31 @@ def _build_visualizations(
             logger.error(f"❌ Component '{target}' has invalid pixel_coords type: {type(pixel_coords)}")
             continue
         
-        # Get pixel values
-        x_min_px = pixel_coords.get("x_min", 0)
-        y_min_px = pixel_coords.get("y_min", 0)
-        x_max_px = pixel_coords.get("x_max", 0)
-        y_max_px = pixel_coords.get("y_max", 0)
+        # Get pixel values (now as floats for precision)
+        x_min_px = float(pixel_coords.get("x_min", 0))
+        y_min_px = float(pixel_coords.get("y_min", 0))
+        x_max_px = float(pixel_coords.get("x_max", 0))
+        y_max_px = float(pixel_coords.get("y_max", 0))
         
-        logger.info(f"🎯 Processing '{target}': pixel_coords=({x_min_px},{y_min_px})-({x_max_px},{y_max_px})")
+        logger.info(f"🎯 Processing '{target}': pixel_coords=({x_min_px:.2f},{y_min_px:.2f})-({x_max_px:.2f},{y_max_px:.2f})")
         
-        # Clamp to image dimensions first
-        x_min_px = max(0, min(x_min_px, img_width))
-        y_min_px = max(0, min(y_min_px, img_height))
-        x_max_px = max(0, min(x_max_px, img_width))
-        y_max_px = max(0, min(y_max_px, img_height))
+        # Validate: already clamped in spatial_mapper, but double-check
+        x_min_px = max(0.0, min(x_min_px, float(img_width)))
+        y_min_px = max(0.0, min(y_min_px, float(img_height)))
+        x_max_px = max(0.0, min(x_max_px, float(img_width)))
+        y_max_px = max(0.0, min(y_max_px, float(img_height)))
         
         # Validate box has area
         if x_min_px >= x_max_px or y_min_px >= y_max_px:
-            logger.error(f"❌ Invalid box for '{target}' after clamping: ({x_min_px},{y_min_px})-({x_max_px},{y_max_px})")
+            logger.error(f"❌ Invalid box for '{target}' after validation: ({x_min_px:.2f},{y_min_px:.2f})-({x_max_px:.2f},{y_max_px:.2f})")
             continue
         
-        # Normalize to 0-1 range for frontend rendering
+        # Normalize to 0-1 range for frontend rendering (KEEP HIGH PRECISION!)
         bbox = {
-            "x_min": x_min_px / img_width if img_width > 0 else 0,
-            "y_min": y_min_px / img_height if img_height > 0 else 0,
-            "x_max": x_max_px / img_width if img_width > 0 else 0,
-            "y_max": y_max_px / img_height if img_height > 0 else 0,
+            "x_min": round(x_min_px / img_width, 6) if img_width > 0 else 0,
+            "y_min": round(y_min_px / img_height, 6) if img_height > 0 else 0,
+            "x_max": round(x_max_px / img_width, 6) if img_width > 0 else 0,
+            "y_max": round(y_max_px / img_height, 6) if img_height > 0 else 0,
         }
         
         # Final validation
@@ -378,8 +387,8 @@ def _build_visualizations(
             logger.error(f"❌ Normalized bbox invalid for '{target}': {bbox}")
             continue
         
-        # Log for debugging
-        logger.info(f"✅ '{target}': pixel=({x_min_px},{y_min_px})-({x_max_px},{y_max_px}) -> normalized=({bbox['x_min']:.3f},{bbox['y_min']:.3f})-({bbox['x_max']:.3f},{bbox['y_max']:.3f})")
+        # Log for debugging with high precision
+        logger.info(f"✅ '{target}': pixel=({x_min_px:.2f},{y_min_px:.2f})-({x_max_px:.2f},{y_max_px:.2f}) -> normalized=({bbox['x_min']:.6f},{bbox['y_min']:.6f})-({bbox['x_max']:.6f},{bbox['y_max']:.6f})")
 
         target = result.get("target", "unknown")
         viz_entry = {

@@ -126,19 +126,15 @@ export function ARImageCanvas({
          return null;
       }
 
-      // Calculate dimensions in percentage
-      let styleWidth = (x_max - x_min) * 100;
-      let styleHeight = (y_max - y_min) * 100;
-
-      // Enforce minimum size for visibility (at least 2%)
-      if (styleWidth < 2) styleWidth = 2;
-      if (styleHeight < 2) styleHeight = 2;
-
+      // CRITICAL FIX: Container has aspectRatio CSS matching the image,
+      // so NO letterboxing occurs! Simply convert normalized coords to percentages.
+      // The container and image are perfectly aligned, so 0-1 coords map directly to 0-100%.
+      
       return {
-         left: `${Math.max(0, x_min * 100)}%`,
-         top: `${Math.max(0, y_min * 100)}%`,
-         width: `${styleWidth}%`,
-         height: `${styleHeight}%`,
+         left: `${x_min * 100}%`,
+         top: `${y_min * 100}%`,
+         width: `${(x_max - x_min) * 100}%`,
+         height: `${(y_max - y_min) * 100}%`,
       };
    };
 
@@ -196,10 +192,13 @@ export function ARImageCanvas({
          height: img.naturalHeight,
       };
       setImageDimensions(dimensions);
+      
       console.log("🖼️ Image loaded:", dimensions);
       console.log("📦 Visualizations received:", safeVisualizations.length);
       safeVisualizations.forEach((viz, i) => {
-         console.log(`  [${i}] ${viz.label}:`, viz.bounding_box ? "✅ has bbox" : "❌ no bbox");
+         if (viz.bounding_box) {
+            console.log(`  [${i}] ${viz.label}:`, viz.bounding_box);
+         }
       });
    };
 
@@ -301,6 +300,7 @@ export function ARImageCanvas({
             <div
                ref={containerRef}
                className={`
+            ar-canvas-container
             relative overflow-hidden rounded-xl border border-border bg-black/40
             ${isFullscreen ? "fixed inset-0 z-50 rounded-none" : "w-full"}
             ${zoom > 1 ? "cursor-grab" : "cursor-default"}

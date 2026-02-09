@@ -49,7 +49,7 @@ ALWAYS_REQUIRED_FIELDS = {
 FORBIDDEN_FIELDS_BY_TYPE = {
     "locate_only": {"troubleshooting_steps", "explanation"},
     "identify_only": {"troubleshooting_steps", "explanation", "localization_results"},
-    "explain_only": {"troubleshooting_steps", "localization_results"},
+    "explain_only": {"troubleshooting_steps"},  # Allow localization_results/visualizations for AR overlay
     "ask_clarifying_questions": {"troubleshooting_steps", "explanation", "localization_results"},
     "reject_invalid_image": {"troubleshooting_steps", "explanation", "localization_results"},
     "ask_for_better_input": {"troubleshooting_steps", "explanation", "localization_results"},

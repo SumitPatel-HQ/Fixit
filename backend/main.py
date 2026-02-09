@@ -322,8 +322,21 @@ async def troubleshoot(
             # Determine targets - prioritize comprehensive detection
             targets = []
             
-            # Priority 1: Use explicitly requested components from query parsing
-            if target_components:
+            # SPECIAL CASE: For explain_only queries, always do comprehensive component detection
+            # Don't use device name as target - we want to find ALL sub-components
+            if answer_type == "explain_only":
+                logger.info("🔍 explain_only query detected - forcing comprehensive component detection")
+                detected_components = device_info.get("components", [])
+                if detected_components and len(detected_components) > 2:
+                    # Use detected sub-components if available
+                    targets = detected_components[:10]
+                    logger.info(f"Using detected sub-components for explanation: {targets}")
+                else:
+                    # Trigger auto-discovery to find all visible components
+                    targets = ["all major visible components"]
+                    logger.info("Triggering auto-discovery for comprehensive explanation")
+            # Priority 1: Use explicitly requested components from query parsing (but NOT for explain_only)
+            elif target_components:
                 targets = target_components
                 logger.info(f"Using target_components from query: {targets}")
             elif target_component:
@@ -518,6 +531,10 @@ async def troubleshoot(
 
         # Schema validation
         final_response = validate_response(final_response)
+        
+        # Log visualization count after schema validation
+        viz_count = len(final_response.get("visualizations", []) or [])
+        logger.info(f"🔍 After schema validation: {viz_count} visualizations in response")
 
         logger.info(f"Completed in {time.time() - start_time:.2f}s ({answer_type})")
         return final_response

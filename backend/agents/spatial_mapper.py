@@ -504,25 +504,31 @@ Only provide bounding_box if confidence >= 0.6 and you can CLEARLY see the compo
                     y_max = y_min + height_fix
                     logger.warning(f"🔧 Fixed collapsed height: added {height_fix}px")
 
-            # Clamp to image bounds
-            x_min = max(0, min(int(x_min), width - 1))
-            y_min = max(0, min(int(y_min), height - 1))
-            x_max = max(0, min(int(x_max), width))
-            y_max = max(0, min(int(y_max), height))
+            # Clamp to image bounds - KEEP AS FLOATS for precision!
+            x_min = max(0.0, min(x_min, float(width)))
+            y_min = max(0.0, min(y_min, float(height)))
+            x_max = max(0.0, min(x_max, float(width)))
+            y_max = max(0.0, min(y_max, float(height)))
 
             # Ensure minimum box size after clamping (at least 10px)
-            if x_max - x_min < 10:
-                x_max = min(x_min + 10, width)
-            if y_max - y_min < 10:
-                y_max = min(y_min + 10, height)
+            if x_max - x_min < 10.0:
+                x_max = min(x_min + 10.0, float(width))
+            if y_max - y_min < 10.0:
+                y_max = min(y_min + 10.0, float(height))
 
             # Final check after clamping
             if x_min >= x_max or y_min >= y_max:
-                logger.error(f"❌ Bbox collapsed AFTER clamping: ({x_min},{y_min})-({x_max},{y_max})")
+                logger.error(f"❌ Bbox collapsed AFTER clamping: ({x_min:.2f},{y_min:.2f})-({x_max:.2f},{y_max:.2f})")
                 return None
 
-            final_bbox = {"x_min": x_min, "y_min": y_min, "x_max": x_max, "y_max": y_max}
-            logger.info(f"✅ Final validated bbox: ({x_min},{y_min})-({x_max},{y_max}) | Size: {x_max-x_min}x{y_max-y_min}px")
+            # Return as floats for maximum precision (no int conversion!)
+            final_bbox = {
+                "x_min": round(x_min, 2), 
+                "y_min": round(y_min, 2), 
+                "x_max": round(x_max, 2), 
+                "y_max": round(y_max, 2)
+            }
+            logger.info(f"✅ Final validated bbox: ({x_min:.2f},{y_min:.2f})-({x_max:.2f},{y_max:.2f}) | Size: {x_max-x_min:.2f}x{y_max-y_min:.2f}px")
             
             return final_bbox
 
