@@ -191,12 +191,14 @@ def build_enhanced_response(
         grounding_info and grounding_info.get("grounded")
     )
     if response["web_grounding_used"]:
-        # Include actual source URIs from grounding metadata
-        sources = grounding_info.get("sources", [])
-        if sources and isinstance(sources, list):
-            response["grounding_sources"] = sources  # [{url, title}, ...]
-        else:
-            response["grounding_sources"] = [{"url": "", "title": grounding_info.get("sources_summary", "Google Search")}]
+        # Transform sources to enhanced frontend format
+        raw_sources = grounding_info.get("sources", [])
+        grounding_supports = grounding_info.get("grounding_supports", [])
+        step_list = step_info.get("steps", []) if step_info and isinstance(step_info, dict) else []
+        
+        response["grounding_sources"] = _transform_grounding_sources(
+            raw_sources, grounding_supports, step_list, device_info
+        )
         response["grounding_sources_summary"] = grounding_info.get("sources_summary", "Google Search")
         response["grounding_disclaimer"] = grounding_info.get("disclaimer")
         # Include search entry point HTML if available (for rich rendering)
@@ -257,6 +259,195 @@ def build_enhanced_response(
         ])
 
     return response
+
+
+def _transform_grounding_sources(
+    raw_sources: List[Dict[str, Any]],
+    grounding_supports: List[Dict[str, Any]],
+    steps: List[Dict[str, Any]],
+    device_info: Dict[str, Any],
+) -> List[Dict[str, Any]]:
+    """
+    Transform raw grounding sources from Gemini into enhanced frontend format.
+    
+    Frontend expects:
+    {
+        id, type, title, url, domain, excerpt, relevance,
+        referenced_in_steps, published_date, favicon_url
+    }
+    """
+    from urllib.parse import urlparse
+    import hashlib
+    
+    if not raw_sources:
+        return []
+    
+    enhanced_sources = []
+    brand = device_info.get("brand", "").lower()
+    
+    for idx, source in enumerate(raw_sources):
+        url = source.get("url", "")
+        title = source.get("title", "")
+        
+        if not url and not title:
+            continue
+            
+        # Extract domain from URL
+        domain = ""
+        if url:
+            try:
+                parsed = urlparse(url)
+                domain = parsed.netloc.replace("www.", "")
+            except:
+                domain = url[:50]
+        
+        # Determine source type based on domain/URL patterns
+        source_type = _determine_source_type(url, domain, title)
+        
+        # Determine relevance based on domain matching and position
+        relevance = _determine_relevance(url, domain, brand, idx)
+        
+        # Find excerpt from grounding_supports that matches this source
+        excerpt = _find_excerpt_for_source(idx, grounding_supports)
+        
+        # Find which steps reference this source (heuristic: match keywords)
+        referenced_steps = _find_referenced_steps(title, excerpt, steps)
+        
+        # Generate unique ID
+        source_id = hashlib.md5(f"{url}{title}".encode()).hexdigest()[:12]
+        
+        enhanced_source = {
+            "id": f"source-{source_id}",
+            "type": source_type,
+            "title": title or domain or "External Source",
+            "url": url,
+            "domain": domain,
+            "excerpt": excerpt or f"Information sourced from {domain}",
+            "relevance": relevance,
+            "referenced_in_steps": referenced_steps,
+            "published_date": None,  # Not available from Gemini grounding
+            "favicon_url": f"https://www.google.com/s2/favicons?domain={domain}&sz=32" if domain else None,
+        }
+        
+        enhanced_sources.append(enhanced_source)
+    
+    # Sort by relevance (high first)
+    relevance_order = {"high": 0, "medium": 1, "low": 2}
+    enhanced_sources.sort(key=lambda x: relevance_order.get(x["relevance"], 2))
+    
+    return enhanced_sources
+
+
+def _determine_source_type(url: str, domain: str, title: str) -> str:
+    """Determine the source type based on URL patterns."""
+    url_lower = url.lower()
+    domain_lower = domain.lower()
+    title_lower = title.lower()
+    
+    # Official documentation patterns
+    official_domains = [
+        "support.", "docs.", "help.", "kb.", "knowledge.",
+        "documentation.", "manual.", "guides."
+    ]
+    official_brands = [
+        "hp.com", "dell.com", "apple.com", "microsoft.com",
+        "samsung.com", "lg.com", "sony.com", "canon.com",
+        "epson.com", "brother.com", "tp-link.com", "netgear.com",
+        "asus.com", "linksys.com", "cisco.com"
+    ]
+    
+    # Check for manual/PDF
+    if ".pdf" in url_lower or "manual" in title_lower:
+        return "manual"
+    
+    # Check for video
+    if any(v in domain_lower for v in ["youtube.com", "vimeo.com", "video."]):
+        return "video"
+    
+    # Check for forum
+    if any(f in domain_lower for f in ["forum", "community", "reddit.com", "stackexchange"]):
+        return "forum"
+    
+    # Check for official documentation
+    if any(od in domain_lower for od in official_domains):
+        return "knowledge_base"
+    
+    if any(ob in domain_lower for ob in official_brands):
+        return "knowledge_base"
+    
+    # Default to web
+    return "web"
+
+
+def _determine_relevance(url: str, domain: str, brand: str, position: int) -> str:
+    """Determine source relevance based on various factors."""
+    domain_lower = domain.lower()
+    
+    # High relevance: Official manufacturer sources
+    if brand and brand in domain_lower:
+        return "high"
+    
+    official_indicators = ["support.", "docs.", "help.", "official", "knowledge."]
+    if any(ind in domain_lower for ind in official_indicators):
+        return "high"
+    
+    # First 2 results tend to be more relevant
+    if position < 2:
+        return "high" if position == 0 else "medium"
+    
+    # Forums are medium relevance
+    if any(f in domain_lower for f in ["forum", "community", "reddit"]):
+        return "medium"
+    
+    return "medium" if position < 4 else "low"
+
+
+def _find_excerpt_for_source(source_index: int, grounding_supports: List[Dict[str, Any]]) -> str:
+    """Find relevant excerpt from grounding supports for this source."""
+    excerpts = []
+    
+    for support in grounding_supports:
+        source_indices = support.get("source_indices", [])
+        if source_index in source_indices:
+            text = support.get("text", "")
+            if text and len(text) > 10:
+                excerpts.append(text)
+    
+    if excerpts:
+        # Combine first few excerpts
+        combined = " ".join(excerpts[:3])
+        # Truncate if too long
+        if len(combined) > 300:
+            combined = combined[:297] + "..."
+        return combined
+    
+    return ""
+
+
+def _find_referenced_steps(title: str, excerpt: str, steps: List[Dict[str, Any]]) -> List[int]:
+    """Heuristically find which steps might reference this source."""
+    if not steps:
+        return []
+    
+    referenced = []
+    search_text = f"{title} {excerpt}".lower()
+    
+    # Extract keywords from source
+    keywords = set()
+    for word in search_text.split():
+        if len(word) > 4:  # Only meaningful words
+            keywords.add(word.strip(".,!?()[]"))
+    
+    for step in steps:
+        step_num = step.get("step", 0)
+        step_text = f"{step.get('instruction', '')} {step.get('visual_cue', '')}".lower()
+        
+        # Check if step text shares keywords with source
+        matches = sum(1 for kw in keywords if kw in step_text)
+        if matches >= 2:
+            referenced.append(step_num)
+    
+    return referenced[:3]  # Limit to first 3 matching steps
 
 
 def _build_device_info(device_info: Dict[str, Any]) -> Dict[str, Any]:

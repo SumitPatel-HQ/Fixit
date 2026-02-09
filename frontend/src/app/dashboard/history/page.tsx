@@ -33,8 +33,7 @@ export default function HistoryPage() {
                   History Content
                </h3>
                <p className="text-muted-foreground max-w-md">
-                  Content will be added here - Timeline of past diagnostics,
-                  repairs, and device history
+                  Coming soon...
                </p>
             </div>
          </div>

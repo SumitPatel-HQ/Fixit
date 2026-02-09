@@ -151,7 +151,7 @@ export function FileUpload({ onFileSelect, selectedFile, onRemove }: FileUploadP
                accept="image/jpeg,image/jpg,image/png,video/mp4,video/quicktime"
                onChange={handleInputChange}
                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-               aria-label="Upload file"
+               aria-label="Upload Image"
             />
 
             <div className="space-y-3 pointer-events-none">
@@ -174,7 +174,7 @@ export function FileUpload({ onFileSelect, selectedFile, onRemove }: FileUploadP
                      {isDragging ? 'Drop it here' : 'Click or drag image here'}
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
-                     Supports JPG, PNG, MP4 (Max 200MB)
+                     Supports JPG, PNG, (Max 200MB)
                   </p>
                </div>
             </div>

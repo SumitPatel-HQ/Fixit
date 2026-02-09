@@ -317,7 +317,7 @@ export default function InputHubPage() {
                               }
                            `}
                         >
-                           📁 Upload File
+                           📁 Upload Image
                         </button>
                      </div>
                   </div>

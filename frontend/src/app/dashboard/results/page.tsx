@@ -25,6 +25,8 @@ import {
    SafetyWarningOnly,
    InvalidImagePanel,
    SourcesList,
+   SourcesEmptyState,
+   SourcesLoadingSkeleton,
 } from "@/components/results";
 import { getSession, storeSession, troubleshoot } from "@/lib/api";
 
@@ -734,42 +736,44 @@ function ResultsContent() {
                               exit={{ opacity: 0, y: -10 }}
                               transition={{ duration: 0.2 }}
                            >
-                              {response.grounding_sources ? (
+                              {/* Sources Tab Content - Handle all states */}
+                              {response.grounding_sources && response.grounding_sources.length > 0 ? (
                                  <SourcesList
                                     sources={response.grounding_sources}
                                     onReferenceClick={(step) => {
                                        handleTabChange("steps");
-                                       // Scroll to steps area if needed, or implement highlight logic
+                                       // Scroll to the specific step after tab change
+                                       setTimeout(() => {
+                                          const stepElement = document.getElementById(`repair-step-${step}`);
+                                          if (stepElement) {
+                                             stepElement.scrollIntoView({ behavior: "smooth", block: "center" });
+                                             // Add highlight effect
+                                             stepElement.classList.add("ring-2", "ring-accent", "ring-opacity-50");
+                                             setTimeout(() => {
+                                                stepElement.classList.remove("ring-2", "ring-accent", "ring-opacity-50");
+                                             }, 2000);
+                                          }
+                                       }, 300);
+                                    }}
+                                 />
+                              ) : response.web_grounding_used ? (
+                                 /* Web grounding was attempted but failed */
+                                 <SourcesEmptyState
+                                    type="failed"
+                                    deviceBrand={response.device_info?.brand}
+                                    deviceModel={response.device_info?.model}
+                                    onRetry={() => {
+                                       // Could trigger a re-fetch of sources
+                                       window.location.reload();
                                     }}
                                  />
                               ) : (
-                                 /* Empty State for Sources */
-                                 <div className="flex flex-col items-center justify-center py-16 text-center space-y-4 bg-secondary/10 rounded-xl border border-white/5">
-                                    <div className="w-12 h-12 rounded-full bg-secondary/30 flex items-center justify-center text-muted-foreground">
-                                       <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                                       </svg>
-                                    </div>
-                                    <div className="space-y-1">
-                                       <h3 className="text-lg font-medium text-white">Sources Currently Unavailable</h3>
-                                       <p className="text-muted-foreground max-w-md mx-auto">
-                                          We couldn't retrieve external sources at this time. The repair steps use general knowledge for this device type.
-                                       </p>
-                                    </div>
-                                    <div className="pt-2 flex flex-col items-center gap-2 text-sm text-accent">
-                                       <span>For your specific model, please consult:</span>
-                                       <div className="flex gap-4">
-                                          <span className="flex items-center gap-1">
-                                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                                             Manufacturer Documentation
-                                          </span>
-                                          <span className="flex items-center gap-1">
-                                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" /></svg>
-                                             Device Support Page
-                                          </span>
-                                       </div>
-                                    </div>
-                                 </div>
+                                 /* No web grounding used - general knowledge */
+                                 <SourcesEmptyState
+                                    type="no_sources"
+                                    deviceBrand={response.device_info?.brand}
+                                    deviceModel={response.device_info?.model}
+                                 />
                               )}
                            </motion.div>
                         )}

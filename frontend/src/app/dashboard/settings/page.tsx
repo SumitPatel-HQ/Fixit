@@ -39,8 +39,7 @@ export default function SettingsPage() {
                   Settings Content
                </h3>
                <p className="text-muted-foreground max-w-md">
-                  Content will be added here - User preferences, notification
-                  settings, and account management
+                  Coming soon...
                </p>
             </div>
          </div>

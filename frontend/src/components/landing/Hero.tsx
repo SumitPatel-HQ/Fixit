@@ -35,9 +35,15 @@ export function Hero() {
          >
             <div className="text-center space-y-6 md:space-y-8 mb-12 md:mb-16">
                <motion.div variants={item} className="inline-block">
-                  <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-secondary border border-border text-[10px] md:text-xs font-medium text-white/70">
-                     <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
-                     Now in beta
+                  <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-secondary/50 backdrop-blur-sm border border-border text-[10px] md:text-xs font-medium text-white/80">
+                     <span className="flex items-center gap-2">
+                        <span>🔧</span>
+                        <span>Now in Beta</span>
+                     </span>
+                     <span className="w-px h-3 bg-border mx-1" />
+                     <span className="bg-gradient-to-r from-accent to-accent/60 bg-clip-text text-transparent">
+                        Powered by Gemini 3
+                     </span>
                   </span>
                </motion.div>
 
@@ -45,27 +51,23 @@ export function Hero() {
                   variants={item}
                   className="text-4xl xs:text-5xl md:text-7xl lg:text-8xl font-bold tracking-tight text-balance max-w-5xl mx-auto leading-[1.1]"
                >
-                  Maintenance made
-                  <span className="block text-accent">effortless</span>
+                  See the Problem.
+                  <span className="block text-accent">Fix it Fast.</span>
                </motion.h1>
 
                <motion.p
                   variants={item}
-                  className="text-sm md:text-xl text-white/50 max-w-2xl mx-auto text-balance px-4 leading-relaxed"
+                  className="text-sm md:text-2xl text-white/50 max-w-8xl mx-auto text-balance px-4 leading-relaxed"
                >
-                  Intelligent automation for modern maintenance workflows. Fix issues faster, track everything, and keep your systems running smoothly.
+                  AI-powered visual troubleshooting that identifies issues, guides repairs step-by-step, and keeps your devices running smoothly—no technical expertise required.
+
                </motion.p>
 
                <motion.div variants={item} className="flex flex-col sm:flex-row items-center justify-center gap-3 md:gap-4 pt-4 px-8 sm:px-0">
                   <Link href="/dashboard" className="w-full sm:w-auto">
                      <Button size="lg" className="w-full sm:w-auto h-12 md:h-14 px-8 rounded-full gap-2 group shadow-2xl shadow-white/5 bg-white text-black hover:bg-white/90">
-                        Get Started
+                        Start Free Analysis
                         <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                     </Button>
-                  </Link>
-                  <Link href="#demo" className="w-full sm:w-auto">
-                     <Button size="lg" variant="secondary" className="w-full sm:w-auto h-12 md:h-14 px-8 rounded-full border border-white/10 bg-white/5 text-white hover:bg-white/10">
-                        View Demo
                      </Button>
                   </Link>
                </motion.div>
@@ -77,7 +79,11 @@ export function Hero() {
                   </div>
                   <div className="flex items-center gap-2">
                      <Check className="w-3.5 h-3.5 md:w-4 md:h-4 text-accent" />
-                     <span>Free 14-day trial</span>
+                     <span>Instant AI diagnosis</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                     <Check className="w-3.5 h-3.5 md:w-4 md:h-4 text-accent" />
+                     <span>90% success rate</span>
                   </div>
                </motion.div>
             </div>
@@ -87,34 +93,22 @@ export function Hero() {
                initial={{ opacity: 0, y: 40 }}
                animate={{ opacity: 1, y: 0 }}
                transition={{ duration: 1, delay: 0.6, ease: "easeOut" }}
-               className="relative max-w-5xl mx-auto group px-2"
+               className="relative max-w-6xl mx-auto group px-2"
             >
-               <div className="relative rounded-xl md:rounded-2xl border border-white/15 bg-[#0a0a0a] p-1.5 md:p-3 shadow-2xl ring-1 ring-white/10">
-                  <div className="rounded-lg md:rounded-xl border border-white/10 bg-[#0c0c0c] p-4 md:p-8 space-y-4 md:space-y-6 overflow-hidden">
-                     {/* Simplified high-fidelity dashboard wireframe */}
-                     <div className="flex items-center justify-between pb-4 md:pb-6 border-b border-white/5">
-                        <div className="flex items-center gap-2 md:gap-4">
-                           <div className="h-2.5 w-20 md:h-3 md:w-32 bg-white/5 rounded-full" />
-                        </div>
-                        <div className="flex gap-2 md:gap-3">
-                           <div className="hidden xs:block h-7 w-20 md:w-24 bg-white/5 rounded-lg border border-white/5" />
-                           <div className="h-7 w-7 md:h-8 md:w-8 bg-accent/20 rounded-lg border border-accent/20" />
-                        </div>
-                     </div>
-
-                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-6">
-                        {[1, 2, 3].map((i) => (
-                           <div key={i} className="h-24 md:h-32 bg-white/[0.02] rounded-lg md:rounded-xl border border-white/5 p-3 md:p-4">
-                              <div className="h-1.5 w-8 bg-white/10 rounded-full mb-2" />
-                              <div className="h-3 w-16 bg-white/5 rounded-full" />
-                           </div>
-                        ))}
-                     </div>
-
-                     <div className="grid grid-cols-1 md:grid-cols-5 gap-3 md:gap-6">
-                        <div className="md:col-span-3 h-40 md:h-56 bg-white/[0.02] rounded-lg md:rounded-xl border border-white/5" />
-                        <div className="md:col-span-2 h-40 md:h-56 bg-white/[0.02] rounded-lg md:rounded-xl border border-white/5" />
-                     </div>
+               <div className="relative rounded-xl md:rounded-3xl border border-white/10 bg-[#0a0a0a] p-1 md:p-1.5 shadow-2xl ring-1 ring-white/5">
+                  <div className="rounded-lg md:rounded-2xl border border-white/5 bg-black overflow-hidden relative aspect-[16/10] md:aspect-[16/9]">
+                     <video
+                        autoPlay
+                        loop
+                        muted
+                        playsInline
+                        className="w-full h-full object-cover"
+                     >
+                        <source src="/demo.mp4" type="video/mp4" />
+                        Your browser does not support the video tag.
+                     </video>
+                     {/* Overlay to soften the video if needed */}
+                     <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent pointer-events-none" />
                   </div>
                </div>
 
