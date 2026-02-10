@@ -7,6 +7,7 @@
     <a href="#-features">Features</a> •
     <a href="#%EF%B8%8F-architecture">Architecture</a> •
     <a href="#-getting-started">Getting Started</a> •
+    <a href="#-deployment">Deployment</a> •
     <a href="#-api-reference">API</a> •
     <a href="#-tech-stack">Tech Stack</a>
   </p>
@@ -362,6 +363,40 @@ FixIt includes built-in Gemini API quota management:
 |---|---|---|---|
 | `NEXT_PUBLIC_API_URL` | ✅ | `http://localhost:8000` | Backend API URL |
 | `NEXT_PUBLIC_ENV` | ❌ | `development` | Environment mode |
+
+---
+
+## 🚀 Deployment
+
+Ready to deploy FixIt AI to production? We've got you covered with comprehensive guides:
+
+### Deployment Guides
+
+| Guide | Description | Time |
+|---|---|---|
+| **[📖 Full Deployment Guide](DEPLOYMENT_GUIDE.md)** | Complete step-by-step instructions for Railway & Vercel | ~15 min |
+| **[⚡ Quick Reference](DEPLOYMENT_QUICK_REFERENCE.md)** | One-page cheat sheet for rapid deployment | ~5 min |
+| **[✅ Deployment Checklist](DEPLOYMENT_CHECKLIST.md)** | Pre/post-deployment checklist with testing steps | — |
+
+### Quick Deploy
+
+**Backend (Railway):**
+```bash
+1. Push code to GitHub
+2. Connect repo to Railway
+3. Set environment variables (GEMINI_API_KEY, etc.)
+4. Deploy → Get URL
+```
+
+**Frontend (Vercel):**
+```bash
+1. Connect repo to Vercel
+2. Set root directory: frontend
+3. Set NEXT_PUBLIC_API_URL to Railway URL
+4. Deploy → Done!
+```
+
+Both platforms support **automatic deployments** on every git push. 🎉
 
 ---
 
