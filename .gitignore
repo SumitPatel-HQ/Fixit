@@ -19,7 +19,7 @@ __pycache__/
 *.sqlite3
 
 
-tests/
+
 models_full.txt
 list_models.py
 clear_cache.js
