@@ -6,7 +6,16 @@
 import { APIResponse, SessionData } from "@/types/api-response";
 
 // Configuration - IMPORTANT: Restart frontend dev server if you change .env.local
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+let rawUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+// Ensure URL has a protocol (common mistake in Vercel/Railway env setup)
+if (rawUrl && !rawUrl.startsWith('http')) {
+   rawUrl = `https://${rawUrl}`;
+}
+
+// Remove trailing slash if present
+export const API_BASE_URL = rawUrl.replace(/\/$/, "");
+
 const REQUEST_TIMEOUT = 120000; // 120 seconds for AI processing (increased for slower models like gemini-3-flash-preview)
 
 // Log the configuration on module load
@@ -219,10 +228,10 @@ export async function troubleshoot(
 
          // Check for quota-related errors
          const errorMsg = errorData.detail || errorData.message || `Server error: ${response.status}`;
-         if (errorMsg.includes('quota') || 
-             errorMsg.includes('temporarily unavailable') ||
-             errorMsg.includes('free tier') ||
-             response.status === 429) {
+         if (errorMsg.includes('quota') ||
+            errorMsg.includes('temporarily unavailable') ||
+            errorMsg.includes('free tier') ||
+            response.status === 429) {
             throw new Error('AI service temporarily unavailable (free tier quota reached). Please try again tomorrow.');
          }
 
@@ -244,14 +253,14 @@ export async function troubleshoot(
       if (apiResponse && typeof apiResponse === 'object') {
          const errorMsg = apiResponse.error || apiResponse.message || '';
          const responseStatus = apiResponse.status || '';
-         
+
          console.log("[API] Checking for quota error:", { errorMsg, responseStatus });
-         
-         if ((responseStatus === 'error' || errorMsg) && 
-             typeof errorMsg === 'string' &&
-             (errorMsg.toLowerCase().includes('quota') || 
-              errorMsg.toLowerCase().includes('temporarily unavailable') ||
-              errorMsg.toLowerCase().includes('free tier'))) {
+
+         if ((responseStatus === 'error' || errorMsg) &&
+            typeof errorMsg === 'string' &&
+            (errorMsg.toLowerCase().includes('quota') ||
+               errorMsg.toLowerCase().includes('temporarily unavailable') ||
+               errorMsg.toLowerCase().includes('free tier'))) {
             console.warn("[API] Quota exhausted detected:", errorMsg);
             // Return as failed response so frontend can show quota modal
             URL.revokeObjectURL(imageUrl);

@@ -10,7 +10,7 @@ import { VoiceInput } from '@/components/input-hub/VoiceInput';
 import { InvalidQueryModal } from '@/components/ui/InvalidQueryModal';
 import { QuotaExhaustedModal } from '@/components/ui/QuotaExhaustedModal';
 import { useDashboard } from './dashboard-context';
-import { troubleshoot, storeSession, checkHealth, cleanupExpiredSessions } from '@/lib/api';
+import { troubleshoot, storeSession, checkHealth, cleanupExpiredSessions, API_BASE_URL } from '@/lib/api';
 
 type InputMode = 'camera' | 'upload';
 type QueryMode = 'voice' | 'text';
@@ -64,7 +64,7 @@ export default function InputHubPage() {
    const [errors, setErrors] = useState<{ image?: string; query?: string }>({});
    const [isSubmitting, setIsSubmitting] = useState(false);
    const [backendStatus, setBackendStatus] = useState<'checking' | 'online' | 'offline'>('checking');
-   
+
    // Invalid query modal state
    const [showInvalidQueryModal, setShowInvalidQueryModal] = useState(false);
    const [invalidQueryData, setInvalidQueryData] = useState<{
@@ -146,7 +146,7 @@ export default function InputHubPage() {
       if (backendStatus === 'offline') {
          setErrors({
             ...errors,
-            query: 'Backend server is offline. Please ensure the backend is running on port 8000.'
+            query: `Backend server is offline. (Attempted contact at: ${API_BASE_URL}). Please verify your backend deployment on Railway.`
          });
          return;
       }
@@ -175,9 +175,9 @@ export default function InputHubPage() {
 
          if (!result.success) {
             // Check if it's a quota error
-            if (result.error?.includes('quota') || 
-                result.error?.includes('temporarily unavailable') ||
-                result.error?.includes('free tier')) {
+            if (result.error?.includes('quota') ||
+               result.error?.includes('temporarily unavailable') ||
+               result.error?.includes('free tier')) {
                console.log('[Dashboard] Quota error detected in result.error');
                setQuotaRetryAfter(result.error.includes('tomorrow') ? 'tomorrow' : 'later');
                setShowQuotaModal(true);
@@ -189,12 +189,12 @@ export default function InputHubPage() {
          // Check if response indicates quota exhaustion (check status, message, and error fields)
          const responseStatus = result.response?.status;
          const errorMessage = result.response?.error || result.response?.message || '';
-         
+
          console.log('[Dashboard] Checking quota in response:', { responseStatus, errorMessage });
-         
+
          if ((responseStatus === 'error' && errorMessage.includes('quota')) ||
-             errorMessage.includes('temporarily unavailable') ||
-             errorMessage.includes('free tier')) {
+            errorMessage.includes('temporarily unavailable') ||
+            errorMessage.includes('free tier')) {
             console.log('[Dashboard] Quota error detected in response');
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const retryAfter = (result.response as any).retry_after as string | undefined;
@@ -231,16 +231,16 @@ export default function InputHubPage() {
          const errorMessage = error instanceof Error
             ? error.message
             : 'Failed to submit request. Please try again.';
-         
+
          // Check if error message indicates quota exhaustion
-         if (errorMessage.includes('quota') || 
-             errorMessage.includes('temporarily unavailable') ||
-             errorMessage.includes('free tier')) {
+         if (errorMessage.includes('quota') ||
+            errorMessage.includes('temporarily unavailable') ||
+            errorMessage.includes('free tier')) {
             setQuotaRetryAfter('tomorrow');
             setShowQuotaModal(true);
             return;
          }
-         
+
          setErrors({ ...errors, query: errorMessage });
       } finally {
          setIsSubmitting(false);

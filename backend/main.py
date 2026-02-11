@@ -55,8 +55,8 @@ app = FastAPI(
 # Set FRONTEND_URL environment variable in production, defaults to wildcard for development
 ALLOWED_ORIGINS = os.getenv("FRONTEND_URL", "*")
 if ALLOWED_ORIGINS != "*":
-    # Parse comma-separated origins for multiple frontend URLs
-    allowed_origins_list = [origin.strip() for origin in ALLOWED_ORIGINS.split(",")]
+    # Parse comma-separated origins for multiple frontend URLs and strip trailing slashes
+    allowed_origins_list = [origin.strip().rstrip('/') for origin in ALLOWED_ORIGINS.split(",")]
 else:
     allowed_origins_list = ["*"]
 
